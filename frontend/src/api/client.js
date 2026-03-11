@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
+    baseURL: import.meta.env.VITE_API_BASE_URL || 'https://instagramcloneby-hikmatyar.onrender.com/api/v1',
     withCredentials: true,
     timeout: 30000,
 });
@@ -63,7 +63,7 @@ export default api;
 
 // Typed API helpers
 export const authAPI = {
-    register: (data) => api.post('/auth/register', data),
+    register: (data) => api.post("/auth/signup", data),
     login: (data) => api.post('/auth/login', data),
     logout: () => api.post('/auth/logout'),
     forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
