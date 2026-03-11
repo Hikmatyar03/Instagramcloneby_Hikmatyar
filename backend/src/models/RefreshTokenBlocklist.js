@@ -8,7 +8,6 @@ const refreshTokenBlocklistSchema = new mongoose.Schema({
 
 // TTL index — MongoDB auto-purges documents after expires_at
 refreshTokenBlocklistSchema.index({ expires_at: 1 }, { expireAfterSeconds: 0 });
-refreshTokenBlocklistSchema.index({ token_hash: 1 }, { unique: true });
 refreshTokenBlocklistSchema.index({ user_id: 1 });
 
 module.exports = mongoose.model('RefreshTokenBlocklist', refreshTokenBlocklistSchema);

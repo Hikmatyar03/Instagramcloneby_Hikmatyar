@@ -68,8 +68,6 @@ const userSchema = new mongoose.Schema({
 });
 
 // Indexes
-userSchema.index({ username: 1 }, { unique: true });
-userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ created_at: -1 });
 
 // Remove sensitive fields from JSON output

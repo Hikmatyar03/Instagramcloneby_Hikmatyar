@@ -8,7 +8,6 @@ const hashtagSchema = new mongoose.Schema({
     timestamps: { createdAt: 'created_at' },
 });
 
-hashtagSchema.index({ tag: 1 }, { unique: true });
 hashtagSchema.index({ posts_count: -1 });
 hashtagSchema.index({ last_used_at: -1 });
 
