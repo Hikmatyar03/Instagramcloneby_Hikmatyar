@@ -63,7 +63,7 @@ export default api;
 
 // Typed API helpers
 export const authAPI = {
-    register: (data) => api.post("/auth/signup", data),
+    register: (data) => api.post("/auth/register", data),
     login: (data) => api.post('/auth/login', data),
     logout: () => api.post('/auth/logout'),
     forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
