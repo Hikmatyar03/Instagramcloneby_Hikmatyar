@@ -36,8 +36,12 @@ const httpServer = http.createServer(app);
 // ─── Security middleware ───────────────────────────────────────────────────────
 app.use(helmet({ crossOriginEmbedderPolicy: false }));
 app.use(cors({
-    origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
-    credentials: true,
+    origin: [
+        "http://localhost:5173",
+        process.env.FRONTEND_ORIGIN,
+        /https:\/\/.*\.vercel\.app$/
+    ],
+    credentials: true
 }));
 
 // ─── Rate limiting ─────────────────────────────────────────────────────────────
