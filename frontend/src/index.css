@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background-color: #0d0d0d;
+    color: #fafafa;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #363636; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #525252; }
+}
+
+@layer components {
+  /* Glass card */
+  .glass {
+    @apply bg-white/5 backdrop-blur-md border border-white/10;
+  }
+
+  /* Instagram-style gradient button */
+  .btn-gradient {
+    @apply bg-gradient-to-r from-[#f09433] via-[#e6683c] via-[#dc2743] via-[#cc2366] to-[#bc1888]
+           text-white font-semibold rounded-lg px-4 py-2 transition-opacity hover:opacity-90
+           active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Primary blue button (like Instagram's own blue) */
+  .btn-primary {
+    @apply bg-[#0095f6] hover:bg-[#1aa1f7] text-white font-semibold rounded-lg px-4 py-2
+           transition-colors active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-surface-muted hover:bg-surface-hover text-text-primary font-semibold rounded-lg px-4 py-2
+           transition-colors active:scale-95;
+  }
+
+  .btn-ghost {
+    @apply text-text-primary hover:bg-surface-hover rounded-lg px-3 py-2 transition-colors;
+  }
+
+  /* Input field */
+  .input-field {
+    @apply w-full bg-surface-card border border-surface-border rounded-lg px-4 py-2.5
+           text-text-primary placeholder:text-text-muted focus:outline-none focus:border-[#0095f6]
+           transition-colors text-sm;
+  }
+
+  /* Avatar ring — story unviewed */
+  .story-ring {
+    @apply p-0.5 rounded-full bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888];
+  }
+
+  /* Avatar ring — story viewed */
+  .story-ring-viewed {
+    @apply p-0.5 rounded-full bg-surface-muted;
+  }
+
+  /* Post card */
+  .post-card {
+    @apply bg-surface-card border border-surface-border rounded-xl overflow-hidden;
+  }
+
+  /* Skeleton loader */
+  .skeleton {
+    @apply bg-surface-muted rounded animate-pulse;
+  }
+
+  /* Nav icon */
+  .nav-icon {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-text-primary hover:bg-surface-hover
+           transition-colors cursor-pointer;
+  }
+
+  .nav-icon.active {
+    @apply font-semibold bg-surface-hover;
+  }
+
+  /* Modal overlay */
+  .modal-overlay {
+    @apply fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+  }
+
+  /* Notification dot */
+  .notif-dot {
+    @apply absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold
+           min-w-[16px] h-4 rounded-full flex items-center justify-center px-1;
+  }
+
+  /* ── Reel player — true 9:16 Instagram style ── */
+  .reel-container {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 9 / 16;
+    background: #000;
+    overflow: hidden;
+    border-radius: 12px;
+    margin: 0 auto;
+  }
+  .reel-container video {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;   /* fills 9:16, crops landscape edges — never stretches */
+  }
+  .reel-container img.reel-thumb {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  /* Gradient fade for reel overlay controls */
+  .reel-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.6) 25%, transparent 60%);
+    pointer-events: none;
+  }
+}
+
+/* Double tap heart animation */
+@keyframes heartPop {
+  0% { transform: scale(0) rotate(-20deg); opacity: 0; }
+  40% { transform: scale(1.4) rotate(5deg); opacity: 1; }
+  70% { transform: scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: scale(1.1) rotate(0deg); opacity: 0; }
+}
+.heart-pop { animation: heartPop 0.8s ease-out forwards; }
+
+/* Story progress bar */
+@keyframes storyBar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.story-bar-animate { transform-origin: left; animation: storyBar linear forwards; }
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

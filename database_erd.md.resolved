@@ -1,0 +1,116 @@
+# Visual Database Schema (ERD)
+
+This diagram visually represents your database schema in a format similar to the one you provided. Even though MongoDB is NoSQL, your application follows structured relationships that can be visualized as an Entity-Relationship Diagram (ERD).
+
+```mermaid
+erDiagram
+    users {
+        ObjectId _id PK
+        String username "UK"
+        String email "UK"
+        String password_hash
+        String full_name
+        String bio
+        String avatar_url
+        Number followers_count
+        Number following_count
+        Number posts_count
+        Boolean is_private
+        Boolean is_verified
+        Date created_at
+    }
+
+    posts {
+        ObjectId _id PK
+        ObjectId user_id FK
+        String type "photo, video, reel, carousel"
+        String caption
+        Array media
+        Array hashtags
+        Number likes_count
+        Number comments_count
+        Date created_at
+    }
+
+    comments {
+        ObjectId _id PK
+        ObjectId post_id FK
+        ObjectId user_id FK
+        ObjectId parent_id FK "For Replies"
+        String text
+        Number likes_count
+        Number replies_count
+        Date created_at
+    }
+
+    likes {
+        ObjectId _id PK
+        ObjectId user_id FK
+        ObjectId target_id FK "Post/Comment/Message ID"
+        String target_type "post, comment, message"
+        Date created_at
+    }
+
+    conversations {
+        ObjectId _id PK
+        Array participants "Array of User IDs"
+        ObjectId last_message_id FK
+        Date updated_at
+    }
+
+    messages {
+        ObjectId _id PK
+        ObjectId conversation_id FK
+        ObjectId sender_id FK
+        String message_type
+        String content
+        String media_url
+        Boolean is_read
+        Date created_at
+    }
+
+    stories {
+        ObjectId _id PK
+        ObjectId user_id FK
+        String media_type
+        String media_url
+        Date expires_at
+        Date created_at
+    }
+    
+    notifications {
+        ObjectId _id PK
+        ObjectId recipient_id FK
+        ObjectId sender_id FK
+        String type "like, comment, follow"
+        ObjectId reference_id FK "Post/Comment ID"
+        Boolean is_read
+        Date created_at
+    }
+
+    %% Relationships
+    users ||--o{ posts : "creates"
+    users ||--o{ comments : "writes"
+    users ||--o{ likes : "performs"
+    users ||--o{ stories : "publishes"
+    users ||--o{ messages : "sends"
+    users ||--o{ notifications : "receives"
+    
+    posts ||--o{ comments : "has"
+    posts ||--o{ likes : "receives"
+    
+    comments ||--o{ comments : "has replies (parent_id)"
+    comments ||--o{ likes : "receives"
+    
+    conversations ||--o{ messages : "contains"
+```
+
+## Presentation Notes
+If your teacher asks about this diagram, here is how you should explain it:
+
+1. **"Is this a SQL database?"**
+   * "No, our application uses **MongoDB**, which is a NoSQL document database. However, this ER Diagram visually represents the logical structure and relationships between our documents. In MongoDB, these 'tables' are actually **Collections**, and the relationships are handled by saving `ObjectId` references in the documents."
+2. **"How are arrays handled?"**
+   * "In cases where data is small and tightly coupled, like the files attached to a post or user settings, we embed them directly as arrays inside the document rather than making a whole new table, which makes MongoDB much faster than traditional SQL databases for these tasks."
+3. **"What do the lines mean?"**
+   * "The lines represent **One-to-Many** relationships. For example, one User can create Many Posts, and one Post can have Many Comments."

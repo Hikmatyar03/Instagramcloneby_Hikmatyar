@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Clone Database Architecture</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #2c3e50;
+        }
+
+        h1 {
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+
+        h2 {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+            margin-top: 40px;
+        }
+
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .mermaid {
+            margin: 20px 0;
+            padding: 20px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .page-break {
+            page-break-before: always;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .mermaid {
+                border: none;
+                box-shadow: none;
+            }
+
+            .page-break {
+                page-break-before: always;
+            }
+
+            /* Hide the print instructions when printing */
+            .print-hidden {
+                display: none !important;
+            }
+        }
+
+        .instruction-banner {
+            background-color: #e8f4fd;
+            border-left: 4px solid #3498db;
+            padding: 15px;
+            margin-bottom: 30px;
+            border-radius: 0 4px 4px 0;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: true });</script>
+</head>
+
+<body>
+
+    <div class="instruction-banner print-hidden">
+        <strong>👋 Hey Hikmatyar!</strong> To save this as a PDF:
+        1. Press <code>Ctrl + P</code> (or right-click and click "Print").<br>
+        2. Set "Destination" to <strong>Save as PDF</strong>.<br>
+        3. Make sure "Background graphics" is checked (to keep the diagram boxes looking nice).<br>
+        4. Click Save!
+    </div>
+
+    <h1>Instagram Clone: Database Architecture & Data Flow</h1>
+    <p>This document details the MongoDB database schema design, entity relationships, and core data flow patterns of
+        the Instagram clone application.</p>
+
+    <!-- SECTION 1: Visual ERD -->
+    <h2>1. Visual Entity-Relationship Diagram (ERD)</h2>
+    <p>This diagram visually represents our database schema. In MongoDB, these "tables" are actually
+        <strong>Collections</strong>, and the relationships are handled by saving <code>ObjectId</code> references in
+        the documents.</p>
+
+    <div class="mermaid">
+        erDiagram
+        users {
+        ObjectId _id PK
+        String username "UK"
+        String email "UK"
+        String password_hash
+        String full_name
+        String bio
+        String avatar_url
+        Number followers_count
+        Number following_count
+        Number posts_count
+        Boolean is_private
+        Boolean is_verified
+        Date created_at
+        }
+
+        posts {
+        ObjectId _id PK
+        ObjectId user_id FK
+        String type "photo, video, reel, carousel"
+        String caption
+        Array media
+        Array hashtags
+        Number likes_count
+        Number comments_count
+        Date created_at
+        }
+
+        comments {
+        ObjectId _id PK
+        ObjectId post_id FK
+        ObjectId user_id FK
+        ObjectId parent_id FK "For Replies"
+        String text
+        Number likes_count
+        Number replies_count
+        Date created_at
+        }
+
+        likes {
+        ObjectId _id PK
+        ObjectId user_id FK
+        ObjectId target_id FK "Post/Comment/Message ID"
+        String target_type "post, comment, message"
+        Date created_at
+        }
+
+        conversations {
+        ObjectId _id PK
+        Array participants "Array of User IDs"
+        ObjectId last_message_id FK
+        Date updated_at
+        }
+
+        messages {
+        ObjectId _id PK
+        ObjectId conversation_id FK
+        ObjectId sender_id FK
+        String message_type
+        String content
+        String media_url
+        Boolean is_read
+        Date created_at
+        }
+
+        stories {
+        ObjectId _id PK
+        ObjectId user_id FK
+        String media_type
+        String media_url
+        Date expires_at
+        Date created_at
+        }
+
+        notifications {
+        ObjectId _id PK
+        ObjectId recipient_id FK
+        ObjectId sender_id FK
+        String type "like, comment, follow"
+        ObjectId reference_id FK "Post/Comment ID"
+        Boolean is_read
+        Date created_at
+        }
+
+        %% Relationships
+        users ||--o{ posts : "creates"
+        users ||--o{ comments : "writes"
+        users ||--o{ likes : "performs"
+        users ||--o{ stories : "publishes"
+        users ||--o{ messages : "sends"
+        users ||--o{ notifications : "receives"
+
+        posts ||--o{ comments : "has"
+        posts ||--o{ likes : "receives"
+
+        comments ||--o{ comments : "has replies (parent_id)"
+        comments ||--o{ likes : "receives"
+
+        conversations ||--o{ messages : "contains"
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- SECTION 2: Core Data Flows -->
+    <h2>2. Core Data Flow Diagrams</h2>
+    <p>These sequence diagrams show how data flows between the Frontend (React), the Backend API (Express), and the
+        Database (MongoDB) during user interactions.</p>
+
+    <h3>Authentication Flow (Login)</h3>
+    <div class="mermaid">
+        sequenceDiagram
+        actor U as User
+        participant F as Frontend (React)
+        participant B as Backend API (Express)
+        participant DB as MongoDB
+
+        U->>F: Enter Username & Password
+        F->>B: POST /api/v1/auth/login
+        B->>DB: findOne({ username })
+        DB-->>B: Return User Document (incl. password_hash)
+
+        alt User not found or Password mismatch
+        B->>B: bcrypt.compare() → false
+        B-->>F: 401 Unauthorized
+        F-->>U: Show "Invalid Credentials"
+        else Password Match
+        B->>B: bcrypt.compare() → true
+        B->>B: Generate JWT Access & Refresh Tokens
+        B->>DB: Update refresh_token_hash in DB
+        B-->>F: 200 OK (Access Token in Body, Refresh Token in HttpOnly Cookie)
+        F->>F: Store Access Token
+        F-->>U: Redirect to /feed
+        end
+    </div>
+
+    <h3>Feed Generation Flow</h3>
+    <div class="mermaid">
+        sequenceDiagram
+        actor U as User
+        participant F as Frontend (React)
+        participant B as Backend API (Express)
+        participant DB as MongoDB
+
+        U->>F: Navigate to /feed
+        F->>B: GET /api/v1/posts/feed (With Access Token)
+        B->>B: Verify JWT Token
+
+        B->>DB: Find User's "following" array
+        DB-->>B: List of Followed User IDs
+
+        B->>DB: find({ user_id: { $in: following_ids } }).sort({ created_at: -1 }).limit(10)
+        DB-->>B: List of Posts (Raw MongoDB Documents)
+
+        B->>DB: Populate(user_id) to get Author details (Username, Avatar)
+        DB-->>B: Author Details
+
+        B-->>F: 200 OK (JSON Array of Posts with Author Info)
+        F->>F: Render PostCard Components
+        F-->>U: Display Instagram Feed
+    </div>
+
+    <div class="page-break"></div>
+
+    <h3>Post Creation & Media Upload Flow</h3>
+    <div class="mermaid">
+        sequenceDiagram
+        actor U as User
+        participant F as Frontend (React)
+        participant B as Backend API (Express)
+        participant FS as File System / Storage
+        participant DB as MongoDB
+
+        U->>F: Select Image & Type Caption
+        F->>F: Create FormData object
+        F->>B: POST /api/v1/posts (Multipart/form-data)
+
+        B->>B: Multer Middleware intercepts media file
+        B->>FS: Save file to /uploads directory
+        FS-->>B: File Path / URL
+
+        B->>DB: Insert new Document into `posts` collection
+        note right of DB: { user_id, caption, media: [{ url, type, size }] }
+        DB-->>B: Returns new Post ID
+
+        B->>DB: Update user.posts_count (+1)
+        B-->>F: 201 Created (Post Metadata)
+        F-->>U: Show new post at top of feed
+    </div>
+
+    <div class="page-break"></div>
+
+    <!-- SECTION 3: Talking Points -->
+    <h2>3. Key Design Talking Points (For Presentation)</h2>
+
+    <h3>Why NoSQL / MongoDB?</h3>
+    <p>Instagram's data is highly document-oriented. A post with multiple images (carousels), stickers, and metadata
+        fits perfectly into a single JSON/BSON document. We can embed smaller arrays (like media items or user
+        notification settings) directly inside the document. This removes the need for complex, slow SQL
+        <code>JOIN</code> operations for every single photo attached to a post.</p>
+
+    <h3>How did you handle indexing?</h3>
+    <p>We added compound indexes on frequently queried fields to ensure the app stays fast even with millions of
+        records. For example, queries for the feed search by <code>user_id</code> and sort by <code>created_at</code>.
+        Therefore, an index on <code>{ user_id: 1, created_at: -1 }</code> is applied to the <code>posts</code>
+        collection to instantly return the newest posts from specific users.</p>
+
+    <h3>How do you handle Likes without overloading the posts document?</h3>
+    <p>We used a <strong>Polymorphic Pattern</strong>. Instead of putting a massive array of <code>liked_by</code> users
+        inside the Post document itself (which could exceed MongoDB's 16MB document size limit for viral posts), we
+        created a separate <code>likes</code> collection. This collection references the <code>target_id</code> and
+        <code>target_type</code> (e.g., <code>post</code> or <code>comment</code>). A simple counter
+        (<code>likes_count</code>) is kept on the post document for quick UI rendering without needing to count the
+        rows.</p>
+
+    <h3>Security Approach</h3>
+    <p>Passwords are never stored in plain text. They are hashed using <strong>bcrypt</strong> (with 12 salt rounds)
+        before ever touching the database. For authentication, JWT (JSON Web Tokens) are used. The Access Token is
+        short-lived for security, and the Refresh Token is stored in an HttpOnly cookie to prevent XSS attacks.</p>
+
+</body>
+
+</html>
