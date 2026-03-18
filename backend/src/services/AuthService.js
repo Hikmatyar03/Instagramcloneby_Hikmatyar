@@ -22,7 +22,7 @@ class AuthService {
         const password_hash = await bcrypt.hash(password, rounds);
         const email_verify_token = crypto.randomBytes(32).toString('hex');
 
-        const user = await User.create({
+        const user = new User({
             username: username.toLowerCase(),
             email: email.toLowerCase(),
             password_hash,

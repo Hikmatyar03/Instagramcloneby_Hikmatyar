@@ -33,6 +33,23 @@ const { setupSocket } = require('./socket');
 const app = express();
 const httpServer = http.createServer(app);
 
+const isPlaceholderSecret = (value) => !value || value.includes('your_64_char_hex');
+
+const validateRuntimeEnv = () => {
+    if (process.env.NODE_ENV !== 'production') return;
+
+    const missing = [];
+
+    if (!process.env.MONGO_URI) missing.push('MONGO_URI');
+    if (isPlaceholderSecret(process.env.JWT_SECRET)) missing.push('JWT_SECRET');
+    if (isPlaceholderSecret(process.env.JWT_REFRESH_SECRET)) missing.push('JWT_REFRESH_SECRET');
+    if (!process.env.FRONTEND_ORIGIN) missing.push('FRONTEND_ORIGIN');
+
+    if (missing.length) {
+        throw new Error(`Missing required production environment variables: ${missing.join(', ')}`);
+    }
+};
+
 // ─── Security middleware ───────────────────────────────────────────────────────
 app.use(helmet({ crossOriginEmbedderPolicy: false }));
 app.use(cors({
@@ -153,6 +170,13 @@ const setupCronJobs = () => {
 
 // ─── Start Server ──────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
+
+try {
+    validateRuntimeEnv();
+} catch (err) {
+    console.error('[Config]', err.message);
+    process.exit(1);
+}
 
 connectDB().then(() => {
     setupCronJobs();
