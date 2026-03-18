@@ -7,8 +7,9 @@
  *   3. Correct single prefix:   '/uploads/posts/...'                 → base + path
  *   4. Missing /uploads prefix: '/posts/...'                         → base + '/uploads' + path
  */
-const BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1')
-    .replace('/api/v1', '');
+import { BACKEND_BASE_URL } from '../api/config';
+
+const BASE = BACKEND_BASE_URL;
 
 export const getMediaUrl = (filePath) => {
     if (!filePath) return null;

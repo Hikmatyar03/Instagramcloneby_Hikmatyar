@@ -1,7 +1,8 @@
 import axios from 'axios';
+import { API_BASE_URL } from './config';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_BASE_URL || 'https://instagramcloneby-hikmatyar.onrender.com/api/v1',
+    baseURL: API_BASE_URL,
     withCredentials: true,
     timeout: 30000,
 });
@@ -40,7 +41,7 @@ api.interceptors.response.use(
             isRefreshing = true;
 
             try {
-                const { data } = await axios.post(`${import.meta.env.VITE_API_BASE_URL || '/api/v1'}/auth/refresh`, {}, { withCredentials: true });
+                const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true });
                 const newToken = data.data.accessToken;
                 localStorage.setItem('accessToken', newToken);
                 processQueue(null, newToken);

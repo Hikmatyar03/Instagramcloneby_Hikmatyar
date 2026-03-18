@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { authAPI } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import { HiEye, HiEyeOff } from 'react-icons/hi';
+import { getApiErrorMessage } from '../utils/apiErrors';
 
 const schema = z.object({
     username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_]+$/, 'Only letters, numbers, underscores'),
@@ -32,7 +33,7 @@ export default function SignupPage() {
             toast.success('Welcome to InstaClone!');
             navigate('/feed', { replace: true });
         } catch (e) {
-            toast.error(e.response?.data?.message || 'Registration failed');
+            toast.error(getApiErrorMessage(e, 'Registration failed'));
         } finally {
             setLoading(false);
         }

@@ -5,6 +5,24 @@ const AuthService = require('../services/AuthService');
 const { authenticate } = require('../middleware/auth');
 const { validate } = require('../middleware/validate');
 
+const REFRESH_TOKEN_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const isProduction = process.env.NODE_ENV === 'production';
+
+const getRefreshCookieOptions = () => ({
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    maxAge: REFRESH_TOKEN_MAX_AGE_MS,
+    path: '/',
+});
+
+const getRefreshCookieClearOptions = () => ({
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/',
+});
+
 // POST /auth/register
 router.post('/register', [
     body('username').matches(/^[a-zA-Z0-9_]{3,30}$/).withMessage('Invalid username'),
@@ -14,9 +32,7 @@ router.post('/register', [
 ], async (req, res, next) => {
     try {
         const { user, accessToken, refreshToken } = await AuthService.register(req.body);
-        res.cookie('refreshToken', refreshToken, {
-            httpOnly: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        res.cookie('refreshToken', refreshToken, getRefreshCookieOptions());
         res.status(201).json({ success: true, data: { accessToken, user } });
     } catch (e) { next(e); }
 });
@@ -29,9 +45,7 @@ router.post('/login', [
 ], async (req, res, next) => {
     try {
         const { user, accessToken, refreshToken } = await AuthService.login(req.body);
-        res.cookie('refreshToken', refreshToken, {
-            httpOnly: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        res.cookie('refreshToken', refreshToken, getRefreshCookieOptions());
         res.json({ success: true, data: { accessToken, user } });
     } catch (e) { next(e); }
 });
@@ -42,9 +56,7 @@ router.post('/refresh', async (req, res, next) => {
         const refreshToken = req.cookies?.refreshToken;
         if (!refreshToken) return res.status(401).json({ success: false, error: 'NO_TOKEN', message: 'No refresh token' });
         const { accessToken, refreshToken: newRefresh } = await AuthService.refreshToken(refreshToken);
-        res.cookie('refreshToken', newRefresh, {
-            httpOnly: true, sameSite: 'strict', maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
+        res.cookie('refreshToken', newRefresh, getRefreshCookieOptions());
         res.json({ success: true, data: { accessToken } });
     } catch (e) { next(e); }
 });
@@ -54,7 +66,7 @@ router.post('/logout', authenticate, async (req, res, next) => {
     try {
         const refreshToken = req.cookies?.refreshToken;
         if (refreshToken) await AuthService.logout(req.user._id, refreshToken);
-        res.clearCookie('refreshToken');
+        res.clearCookie('refreshToken', getRefreshCookieClearOptions());
         res.status(204).end();
     } catch (e) { next(e); }
 });

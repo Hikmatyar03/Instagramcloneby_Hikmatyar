@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { authAPI } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import { HiEye, HiEyeOff } from 'react-icons/hi';
+import { getApiErrorMessage } from '../utils/apiErrors';
 
 const schema = z.object({
     login: z.string().min(1, 'Email or username required'),
@@ -30,7 +31,7 @@ export default function LoginPage() {
             setAuth(data.data.user, data.data.accessToken);
             navigate('/feed', { replace: true });
         } catch (e) {
-            toast.error(e.response?.data?.message || 'Login failed');
+            toast.error(getApiErrorMessage(e, 'Login failed'));
         } finally {
             setLoading(false);
         }

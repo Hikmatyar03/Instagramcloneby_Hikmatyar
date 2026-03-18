@@ -1,4 +1,5 @@
 import { io } from 'socket.io-client';
+import { SOCKET_URL } from './config';
 
 let socket = null;
 
@@ -7,12 +8,13 @@ export const getSocket = () => socket;
 export const connectSocket = (token) => {
     if (socket?.connected) return socket;
 
-    socket = io(import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000', {
+    socket = io(SOCKET_URL, {
         auth: { token },
         autoConnect: true,
         reconnection: true,
         reconnectionDelay: 1000,
         reconnectionAttempts: 10,
+        withCredentials: true,
     });
 
     socket.on('connect', () => console.log('[Socket] Connected:', socket.id));

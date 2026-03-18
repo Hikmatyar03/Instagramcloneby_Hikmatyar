@@ -32,11 +32,12 @@ const errorHandler = (err, req, res, next) => {
     }
 
     // Default
-    const status = err.status || 500;
+    const status = err.status || err.statusCode || 500;
+    const shouldExposeMessage = process.env.NODE_ENV === 'development' || (status >= 400 && status < 500);
     res.status(status).json({
         success: false,
         error: err.code || 'INTERNAL_SERVER_ERROR',
-        message: process.env.NODE_ENV === 'development' ? err.message : 'An unexpected error occurred',
+        message: shouldExposeMessage ? err.message : 'An unexpected error occurred',
     });
 };
 
