@@ -122,9 +122,16 @@ app.use(notFound);
 app.use(errorHandler);
 
 // ─── Socket.IO ─────────────────────────────────────────────────────────────────
+// Use the same origin strategy for Socket.IO as Express (allow localhost, FRONTEND_ORIGIN and Vercel wildcard)
+const socketCorsOrigins = [
+    "http://localhost:5173",
+    process.env.FRONTEND_ORIGIN,
+    /https:\/\/.*\.vercel\.app$/,
+].filter(Boolean);
+
 const io = new Server(httpServer, {
     cors: {
-        origin: process.env.FRONTEND_ORIGIN || 'http://localhost:5173',
+        origin: socketCorsOrigins,
         credentials: true,
     },
     pingTimeout: 60000,
