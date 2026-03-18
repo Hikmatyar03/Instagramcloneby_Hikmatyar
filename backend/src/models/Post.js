@@ -7,6 +7,8 @@ const mediaItemSchema = new mongoose.Schema({
     thumbnail_url: { type: String, required: true },
     medium_url: { type: String },
     full_url: { type: String, required: true },
+    public_id: { type: String },
+    thumbnail_public_id: { type: String },
     hls_url: { type: String },
     width: { type: Number, required: true },
     height: { type: Number, required: true },

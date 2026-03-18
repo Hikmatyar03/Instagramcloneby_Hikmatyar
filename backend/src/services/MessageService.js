@@ -1,5 +1,6 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
+const { deleteResource, isConfigured } = require('./CloudinaryService');
 
 class MessageService {
     async getOrCreateDirect(userId, participantId) {
@@ -63,7 +64,7 @@ class MessageService {
         return { messages: messages.reverse(), next_cursor: hasMore ? messages[0]?._id : null };
     }
 
-    async sendMessage(convId, senderId, { message_type, content, media_url, shared_post_id, reply_to_id }) {
+    async sendMessage(convId, senderId, { message_type, content, media_url, media_public_id, shared_post_id, reply_to_id }) {
         const conv = await Conversation.findOne({ _id: convId, participants: senderId });
         if (!conv) { const err = new Error('Not found'); err.status = 404; throw err; }
 
@@ -73,6 +74,7 @@ class MessageService {
             message_type: message_type || 'text',
             content,
             media_url,
+            media_public_id,
             shared_post_id,
             reply_to_id,
         });
@@ -90,6 +92,9 @@ class MessageService {
     async deleteMessage(msgId, userId) {
         const msg = await Message.findOne({ _id: msgId, sender_id: userId });
         if (!msg) { const err = new Error('Not found'); err.status = 404; throw err; }
+        if (isConfigured() && msg.media_public_id) {
+            try { await deleteResource(msg.media_public_id, msg.message_type === 'video' ? 'video' : 'image'); } catch (e) { }
+        }
         msg.is_deleted = true;
         return msg.save();
     }
@@ -99,6 +104,11 @@ class MessageService {
         if (!msg) { const err = new Error('Not found'); err.status = 404; throw err; }
         const ageMins = (Date.now() - msg.created_at.getTime()) / 60000;
         if (ageMins > 10) { const err = new Error('Unsend window expired'); err.status = 400; throw err; }
+        if (isConfigured() && msg.media_public_id) {
+            try { await deleteResource(msg.media_public_id, msg.message_type === 'video' ? 'video' : 'image'); } catch (e) { }
+            msg.media_public_id = undefined;
+            msg.media_url = undefined;
+        }
         msg.is_unsent = true;
         msg.content = null;
         return msg.save();

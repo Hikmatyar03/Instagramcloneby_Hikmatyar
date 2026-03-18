@@ -63,6 +63,7 @@ const userSchema = new mongoose.Schema({
   password_reset_token: { type: String, select: false },
   password_reset_expires: { type: Date, select: false },
   email_verify_token: { type: String, select: false },
+  avatar_public_id: { type: String, select: false },
 }, {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
 });

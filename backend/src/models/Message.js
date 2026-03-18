@@ -21,6 +21,7 @@ const messageSchema = new mongoose.Schema({
     },
     content: { type: String, maxlength: 1000 },
     media_url: { type: String },
+    media_public_id: { type: String },
     shared_post_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
     shared_story_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Story' },
     reactions: [messageReactionSchema],

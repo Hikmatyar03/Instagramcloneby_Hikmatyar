@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const { deleteResource, isConfigured } = require('./CloudinaryService');
 const Follow = require('../models/Follow');
 const Post = require('../models/Post');
 
@@ -41,12 +42,18 @@ class UserService {
         return User.findByIdAndUpdate(userId, filtered, { new: true, runValidators: true });
     }
 
-    async updateAvatar(userId, avatarUrl) {
-        return User.findByIdAndUpdate(userId, { avatar_url: avatarUrl }, { new: true });
+    async updateAvatar(userId, avatarUrl, avatarPublicId) {
+        const updates = { avatar_url: avatarUrl };
+        if (avatarPublicId) updates.avatar_public_id = avatarPublicId;
+        return User.findByIdAndUpdate(userId, updates, { new: true });
     }
 
     async deleteAvatar(userId) {
-        return User.findByIdAndUpdate(userId, { avatar_url: '' }, { new: true });
+        const user = await User.findById(userId).select('+avatar_public_id');
+        if (user && isConfigured() && user.avatar_public_id) {
+            try { await deleteResource(user.avatar_public_id, 'image'); } catch (e) { }
+        }
+        return User.findByIdAndUpdate(userId, { avatar_url: '', avatar_public_id: undefined }, { new: true });
     }
 
     async searchUsers(query, limit = 10) {

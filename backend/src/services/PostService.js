@@ -6,7 +6,7 @@ const Like = require('../models/Like');
 const Save = require('../models/Save');
 const path = require('path');
 const fs = require('fs');
-const { uploadFile, isConfigured } = require('./CloudinaryService');
+const { uploadFile, isConfigured, deleteResource } = require('./CloudinaryService');
 
 // Extract hashtags from caption
 const extractHashtags = (caption) => {
@@ -59,6 +59,8 @@ class PostService {
                         original_url: res.secure_url,
                         thumbnail_url: (isVideo && res.thumbnail_url) ? res.thumbnail_url : res.secure_url,
                         full_url: res.secure_url,
+                        public_id: res.public_id,
+                        thumbnail_public_id: res.public_id,
                         width: res.width || 1080,
                         height: res.height || 1080,
                         duration: res.duration,
@@ -74,6 +76,9 @@ class PostService {
                         original_url: fileUrl,
                         thumbnail_url: (file.mimetype.startsWith('video/') && thumbUrl) ? thumbUrl : fileUrl,
                         full_url: fileUrl,
+                        // no public_id when using local fallback
+                        public_id: undefined,
+                        thumbnail_public_id: undefined,
                         width: 1080,
                         height: 1080,
                         size_bytes: file.size,
@@ -84,7 +89,10 @@ class PostService {
             if (thumbFiles[0]) {
                 try {
                     const t = await uploadFile(thumbFiles[0].path, { folder: `instaclone/posts/${userId}/thumbs` });
-                    if (media[0]) media[0].thumbnail_url = t.secure_url;
+                    if (media[0]) {
+                        media[0].thumbnail_url = t.secure_url;
+                        media[0].thumbnail_public_id = t.public_id || media[0].thumbnail_public_id;
+                    }
                 } catch (e) { }
             }
         } else {
@@ -183,6 +191,20 @@ class PostService {
             err.status = 404;
             throw err;
         }
+        // Attempt to remove Cloudinary resources for all media items
+        try {
+            for (const m of post.media || []) {
+                if (m.public_id) {
+                    await deleteResource(m.public_id, m.type === 'video' ? 'video' : 'image');
+                }
+                if (m.thumbnail_public_id && m.thumbnail_public_id !== m.public_id) {
+                    await deleteResource(m.thumbnail_public_id, 'image');
+                }
+            }
+        } catch (e) {
+            console.error('[PostService] error deleting cloud resources', e.message);
+        }
+
         post.is_deleted = true;
         await post.save();
         await User.findByIdAndUpdate(userId, { $inc: { posts_count: -1 } });

@@ -36,4 +36,14 @@ const uploadFile = async (filePath, options = {}) => {
     return result;
 };
 
-module.exports = { uploadFile, isConfigured };
+const deleteResource = async (publicId, resourceType = 'image') => {
+    if (!isConfigured()) return;
+    try {
+        await cloudinary.uploader.destroy(publicId, { resource_type: resourceType });
+    } catch (e) {
+        // Log and ignore
+        console.error('[Cloudinary] delete error', e.message);
+    }
+};
+
+module.exports = { uploadFile, isConfigured, deleteResource };

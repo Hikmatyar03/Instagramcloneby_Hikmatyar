@@ -6,6 +6,7 @@ const FeedService = require('../services/FeedService');
 const FollowService = require('../services/FollowService');
 const { authenticate } = require('../middleware/auth');
 const { uploadAvatar } = require('../middleware/upload');
+const { uploadFile, isConfigured } = require('../services/CloudinaryService');
 const path = require('path');
 
 // GET /users/search
@@ -45,8 +46,18 @@ router.post('/me/avatar', authenticate, (req, res, next) => {
         if (err) return next(err);
         if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
         try {
-            const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-            const user = await UserService.updateAvatar(req.user._id, avatarUrl);
+            let avatarUrl = `/uploads/avatars/${req.file.filename}`;
+            let avatarPublicId;
+            if (isConfigured()) {
+                try {
+                    const result = await uploadFile(req.file.path, { folder: `instaclone/avatars` });
+                    avatarUrl = result.secure_url;
+                    avatarPublicId = result.public_id;
+                } catch (e) {
+                    // fallback to local path if Cloudinary fails
+                }
+            }
+            const user = await UserService.updateAvatar(req.user._id, avatarUrl, avatarPublicId);
             res.json({ success: true, data: user });
         } catch (e) { next(e); }
     });

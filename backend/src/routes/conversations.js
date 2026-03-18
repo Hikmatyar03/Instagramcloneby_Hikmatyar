@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const MessageService = require('../services/MessageService');
 const { authenticate } = require('../middleware/auth');
+const { uploadMessageMedia } = require('../middleware/upload');
+const { uploadFile, isConfigured } = require('../services/CloudinaryService');
 const Follow = require('../models/Follow');
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
@@ -86,6 +88,30 @@ router.post('/:id/messages', authenticate, async (req, res, next) => {
         // Socket.IO emit happens in socket handler when online
         res.status(201).json({ success: true, data: msg });
     } catch (e) { next(e); }
+});
+
+// POST /conversations/:id/messages/media — upload a media file and create a message with media_url
+router.post('/:id/messages/media', authenticate, (req, res, next) => {
+    uploadMessageMedia(req, res, async (err) => {
+        if (err) return next(err);
+        if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
+        try {
+            let mediaUrl = `/uploads/messages/${req.user._id.toString()}/${req.file.filename}`;
+            let mediaPublicId;
+            if (isConfigured()) {
+                try {
+                    const result = await uploadFile(req.file.path, { folder: `instaclone/messages/${req.user._id.toString()}` });
+                    mediaUrl = result.secure_url;
+                    mediaPublicId = result.public_id;
+                } catch (e) {
+                    // fallback to local
+                }
+            }
+
+            const msg = await MessageService.sendMessage(req.params.id, req.user._id, { message_type: req.body.message_type || 'media', media_url: mediaUrl, media_public_id: mediaPublicId, content: req.body.content });
+            res.status(201).json({ success: true, data: msg });
+        } catch (e) { next(e); }
+    });
 });
 
 // PATCH /conversations/:id/mute

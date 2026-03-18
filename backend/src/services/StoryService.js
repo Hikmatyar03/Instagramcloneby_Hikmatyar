@@ -2,6 +2,7 @@ const Story = require('../models/Story');
 const Highlight = require('../models/Highlight');
 const Follow = require('../models/Follow');
 const path = require('path');
+const { uploadFile, isConfigured, deleteResource } = require('./CloudinaryService');
 
 class StoryService {
     async createStory(userId, { caption, audience, stickers }, file) {
@@ -12,9 +13,22 @@ class StoryService {
         }
 
         const isVideo = file.mimetype.startsWith('video/');
-        // path.relative gives e.g. 'uploads/stories/userId/file.ext'
-        const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
-        const fileUrl = `/${relativePart}`;
+        let fileUrl;
+        let mediaPublicId;
+        if (isConfigured()) {
+            try {
+                const res = await uploadFile(file.path, { folder: `instaclone/stories/${userId}` });
+                fileUrl = res.secure_url;
+                mediaPublicId = res.public_id;
+            } catch (e) {
+                const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
+                fileUrl = `/${relativePart}`;
+            }
+        } else {
+            // path.relative gives e.g. 'uploads/stories/userId/file.ext'
+            const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
+            fileUrl = `/${relativePart}`;
+        }
 
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -22,7 +36,9 @@ class StoryService {
             user_id: userId,
             media_type: isVideo ? 'video' : 'image',
             media_url: fileUrl,
+            media_public_id: mediaPublicId,
             thumbnail_url: fileUrl,
+            thumbnail_public_id: undefined,
             duration: isVideo ? 15 : 5,
             caption,
             audience: audience || 'followers',
@@ -98,6 +114,12 @@ class StoryService {
             const err = new Error('Story not found');
             err.status = 404;
             throw err;
+        }
+        if (isConfigured() && story.media_public_id) {
+            try { await deleteResource(story.media_public_id, story.media_type === 'video' ? 'video' : 'image'); } catch (e) { }
+            if (story.thumbnail_public_id) {
+                try { await deleteResource(story.thumbnail_public_id, 'image'); } catch (e) { }
+            }
         }
         await story.deleteOne();
         return { deleted: true };
