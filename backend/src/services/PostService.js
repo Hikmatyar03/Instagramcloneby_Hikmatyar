@@ -6,6 +6,7 @@ const Like = require('../models/Like');
 const Save = require('../models/Save');
 const path = require('path');
 const fs = require('fs');
+const { uploadFile, isConfigured } = require('./CloudinaryService');
 
 // Extract hashtags from caption
 const extractHashtags = (caption) => {
@@ -44,22 +45,66 @@ class PostService {
             : null;
 
         // Build media array from uploaded files
-        const media = mediaFiles.map((file, i) => {
-            const isVideo = file.mimetype.startsWith('video/');
-            const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
-            const fileUrl = `/${relativePart}`;
-            return {
-                order: i,
-                type: isVideo ? 'video' : 'image',
-                original_url: fileUrl,
-                // Use the uploaded thumbnail blob if available, else fall back to the file itself
-                thumbnail_url: (isVideo && thumbUrl) ? thumbUrl : fileUrl,
-                full_url: fileUrl,
-                width: 1080,
-                height: 1080,
-                size_bytes: file.size,
-            };
-        });
+        let media = [];
+        if (isConfigured()) {
+            // Upload each file to Cloudinary and construct media items
+            for (let i = 0; i < mediaFiles.length; i++) {
+                const file = mediaFiles[i];
+                try {
+                    const res = await uploadFile(file.path, { folder: `instaclone/posts/${userId}` });
+                    const isVideo = res.resource_type === 'video';
+                    media.push({
+                        order: i,
+                        type: isVideo ? 'video' : 'image',
+                        original_url: res.secure_url,
+                        thumbnail_url: (isVideo && res.thumbnail_url) ? res.thumbnail_url : res.secure_url,
+                        full_url: res.secure_url,
+                        width: res.width || 1080,
+                        height: res.height || 1080,
+                        duration: res.duration,
+                        size_bytes: res.bytes,
+                    });
+                } catch (e) {
+                    // If Cloudinary upload fails for a file, fallback to local path
+                    const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
+                    const fileUrl = `/${relativePart}`;
+                    media.push({
+                        order: i,
+                        type: file.mimetype.startsWith('video/') ? 'video' : 'image',
+                        original_url: fileUrl,
+                        thumbnail_url: (file.mimetype.startsWith('video/') && thumbUrl) ? thumbUrl : fileUrl,
+                        full_url: fileUrl,
+                        width: 1080,
+                        height: 1080,
+                        size_bytes: file.size,
+                    });
+                }
+            }
+            // If a thumbnail file was provided separately (e.g., for video), upload it too and set for the first media item if missing
+            if (thumbFiles[0]) {
+                try {
+                    const t = await uploadFile(thumbFiles[0].path, { folder: `instaclone/posts/${userId}/thumbs` });
+                    if (media[0]) media[0].thumbnail_url = t.secure_url;
+                } catch (e) { }
+            }
+        } else {
+            media = mediaFiles.map((file, i) => {
+                const isVideo = file.mimetype.startsWith('video/');
+                const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
+                const fileUrl = `/${relativePart}`;
+                return {
+                    order: i,
+                    type: isVideo ? 'video' : 'image',
+                    original_url: fileUrl,
+                    // Use the uploaded thumbnail blob if available, else fall back to the file itself
+                    thumbnail_url: (isVideo && thumbUrl) ? thumbUrl : fileUrl,
+                    full_url: fileUrl,
+                    width: 1080,
+                    height: 1080,
+                    size_bytes: file.size,
+                };
+            });
+        }
 
         const postType = type || (mediaFiles.length > 1 ? 'carousel' : (mediaFiles[0]?.mimetype.startsWith('video/') ? 'video' : 'photo'));
 

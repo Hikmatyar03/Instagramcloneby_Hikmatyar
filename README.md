@@ -79,6 +79,36 @@ BCRYPT_ROUNDS=12
 UPLOAD_DIR=./uploads
 MAX_IMAGE_SIZE_MB=10
 MAX_VIDEO_SIZE_MB=100
+
+Optional / Recommended for media in production:
+
+- `CLOUDINARY_URL` or `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` — when set, uploaded media (posts, stories, avatars, message media) will be uploaded to Cloudinary and served from there. This avoids using the Render instance filesystem (which is ephemeral) and prevents 404s for uploaded images.
+
+To set on Render:
+
+1. Go to your service dashboard on Render.
+2. Open the service's Environment → Environment Variables.
+3. Add `CLOUDINARY_URL` (or the three individual variables) with your Cloudinary credentials.
+4. Add `FRONTEND_ORIGIN` pointing to your Vercel URL (e.g. `https://your-app.vercel.app`).
+5. Redeploy the service.
+
+Socket and CORS notes
+- Ensure `FRONTEND_ORIGIN` matches the Vercel app origin so Socket.IO and CORS accept connections from the frontend. The backend now supports the Vercel wildcard origin too.
+
+Frontend (Vercel) envs
+- Set the following in your Vercel project settings → Environment Variables:
+
+```
+VITE_API_BASE_URL=https://your-render-backend.onrender.com/api/v1
+VITE_SOCKET_URL=https://your-render-backend.onrender.com
+```
+
+Quick test checklist after deploy
+
+1. Open browser devtools console — look for socket logs (frontend prints `"[Socket] Connected: <id>"` on success or `connect_error` messages on failure).
+2. Try uploading a new post — if Cloudinary is configured, uploaded files will be stored and their URLs will be returned; if not, uploads depend on the instance filesystem which is ephemeral.
+3. Check a known uploaded image URL — if it 404s, it likely was stored on a previous ephemeral instance; re-uploading with Cloudinary will fix.
+
 ```
 
 Notes:
