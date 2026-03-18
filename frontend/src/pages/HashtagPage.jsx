@@ -4,6 +4,7 @@ import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { searchAPI } from '../api/client';
 import { Link } from 'react-router-dom';
+import { getMediaUrl } from '../utils/media';
 
 export default function HashtagPage() {
     const { tag } = useParams();
@@ -49,7 +50,7 @@ export default function HashtagPage() {
                     {posts.map(post => (
                         <Link key={post._id} to={`/p/${post._id}`} className="aspect-square overflow-hidden relative group bg-surface-muted">
                             <img
-                                src={post.media?.[0]?.thumbnail_url || post.media?.[0]?.full_url}
+                                src={getMediaUrl(post.media?.[0]?.thumbnail_url || post.media?.[0]?.full_url)}
                                 alt=""
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />

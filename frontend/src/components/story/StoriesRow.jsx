@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { getAvatarUrl } from '../../utils/media';
 
 export default function StoriesRow({ groups }) {
     const { user } = useAuthStore();
@@ -27,7 +28,7 @@ export default function StoriesRow({ groups }) {
                             <div className={hasUnviewed ? 'story-ring' : 'story-ring-viewed'}>
                                 <div className="bg-surface rounded-full p-0.5">
                                     {avatar ? (
-                                        <img src={avatar} alt={username} className="w-14 h-14 rounded-full object-cover" />
+                                        <img src={getAvatarUrl(avatar)} alt={username} className="w-14 h-14 rounded-full object-cover" />
                                     ) : (
                                         <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white font-bold text-lg">
                                             {username?.[0]?.toUpperCase()}

@@ -5,6 +5,7 @@ import { postAPI, searchAPI } from '../api/client';
 import { Link, useNavigate } from 'react-router-dom';
 import { HiSearch, HiFilm, HiHashtag } from 'react-icons/hi';
 import { useDebounce } from '../hooks/useDebounce';
+import { getAvatarUrl, getMediaUrl } from '../utils/media';
 
 const FILTER_TABS = ['Top', 'Accounts', 'Tags'];
 
@@ -54,7 +55,7 @@ export default function ExplorePage() {
                     {(searchResults?.pages?.[0]?.users || []).map(u => (
                         <Link key={u._id} to={`/${u.username}`} className="flex items-center gap-3 p-3 rounded-xl hover:bg-surface-card">
                             {u.avatar_url ? (
-                                <img src={u.avatar_url} className="w-10 h-10 rounded-full object-cover" alt={u.username} />
+                                <img src={getAvatarUrl(u.avatar_url)} className="w-10 h-10 rounded-full object-cover" alt={u.username} />
                             ) : (
                                 <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white font-bold">{u.username[0].toUpperCase()}</div>
                             )}
@@ -100,7 +101,7 @@ export default function ExplorePage() {
                                 <Link key={post._id} to={`/p/${post._id}`}
                                     className={`relative overflow-hidden bg-surface-muted group ${i % 7 === 0 ? 'col-span-2 row-span-2 aspect-square' : 'aspect-square'}`}>
                                     <img
-                                        src={post.media?.[0]?.thumbnail_url || post.media?.[0]?.full_url}
+                                        src={getMediaUrl(post.media?.[0]?.thumbnail_url || post.media?.[0]?.full_url)}
                                         alt=""
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                     />

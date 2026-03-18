@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore';
 import { motion } from 'framer-motion';
 import { HiOutlineCog, HiViewGrid, HiFilm, HiTag, HiChat } from 'react-icons/hi';
 import toast from 'react-hot-toast';
+import { getAvatarUrl, getMediaUrl } from '../utils/media';
 
 const TABS = [
     { key: 'posts', label: 'Posts', icon: HiViewGrid },
@@ -69,7 +70,7 @@ export default function ProfilePage() {
                 {/* Avatar */}
                 <div className="flex-shrink-0 flex justify-center">
                     {profile?.avatar_url ? (
-                        <img src={profile.avatar_url} alt={profile.username} className="w-32 h-32 sm:w-36 sm:h-36 rounded-full object-cover ring-2 ring-surface-border" />
+                        <img src={getAvatarUrl(profile.avatar_url)} alt={profile.username} className="w-32 h-32 sm:w-36 sm:h-36 rounded-full object-cover ring-2 ring-surface-border" />
                     ) : (
                         <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white text-4xl font-bold">
                             {profile?.username?.[0]?.toUpperCase()}
@@ -175,13 +176,13 @@ export default function ProfilePage() {
                     {(postsData?.posts || []).map(post => (
                         <Link key={post._id} to={`/p/${post._id}`} className="aspect-square overflow-hidden relative group bg-surface-muted">
                             <img
-                                src={post.media?.[0]?.thumbnail_url || post.media?.[0]?.full_url}
+                                src={getMediaUrl(post.media?.[0]?.thumbnail_url || post.media?.[0]?.full_url)}
                                 alt=""
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             />
                             {post.media?.length > 1 && (
                                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100">
-                                    <HiGrid className="w-4 h-4 text-white drop-shadow" />
+                                    <HiViewGrid className="w-4 h-4 text-white drop-shadow" />
                                 </div>
                             )}
                             {post.type === 'reel' && (

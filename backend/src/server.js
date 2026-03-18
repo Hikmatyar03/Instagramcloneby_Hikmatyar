@@ -51,7 +51,10 @@ const validateRuntimeEnv = () => {
 };
 
 // ─── Security middleware ───────────────────────────────────────────────────────
-app.use(helmet({ crossOriginEmbedderPolicy: false }));
+app.use(helmet({
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(cors({
     origin: [
         "http://localhost:5173",

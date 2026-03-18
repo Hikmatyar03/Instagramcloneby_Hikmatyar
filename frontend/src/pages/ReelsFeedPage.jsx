@@ -9,6 +9,7 @@ import {
 } from 'react-icons/hi';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
+import { getAvatarUrl, getMediaUrl } from '../utils/media';
 
 /* ─── Single Reel Item ────────────────────────────────────────────────────── */
 
@@ -73,7 +74,7 @@ function ReelItem({ reel, isActive }) {
             {(reel.media?.[0]?.thumbnail_url) && (
                 <img
                     className="reel-thumb"
-                    src={reel.media[0].thumbnail_url}
+                    src={getMediaUrl(reel.media[0].thumbnail_url)}
                     alt=""
                     style={{ zIndex: 0 }}
                 />
@@ -82,7 +83,7 @@ function ReelItem({ reel, isActive }) {
             {mediaUrl ? (
                 <video
                     ref={videoRef}
-                    src={mediaUrl}
+                    src={getMediaUrl(mediaUrl)}
                     loop
                     playsInline
                     muted={muted}
@@ -110,7 +111,7 @@ function ReelItem({ reel, isActive }) {
                 <button onClick={() => navigate(`/${author?.username}`)}>
                     <div className="w-11 h-11 rounded-full ring-2 ring-white overflow-hidden bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white font-bold">
                         {author?.avatar_url
-                            ? <img src={author.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ? <img src={getAvatarUrl(author.avatar_url)} alt="" className="w-full h-full object-cover" />
                             : author?.username?.[0]?.toUpperCase()
                         }
                     </div>

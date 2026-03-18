@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { liveAPI } from '../api/client';
 import { getSocket } from '../api/socket';
 import { useAuthStore } from '../store/authStore';
-import { HiX, HiChat, HiEyeOutline, HiEye } from 'react-icons/hi';
+import { HiX, HiChat, HiEye } from 'react-icons/hi';
 
 export default function LivePage() {
     const { streamId } = useParams();

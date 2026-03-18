@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { Link } from 'react-router-dom';
 import { HiPaperAirplane, HiArrowLeft, HiPhotograph } from 'react-icons/hi';
 import toast from 'react-hot-toast';
+import { getAvatarUrl, getMediaUrl } from '../utils/media';
 
 /* ─── Conversation list item ──────────────────────────────────────────────── */
 
@@ -28,7 +29,7 @@ function ConversationItem({ conv, isActive, onClick, currentUserId }) {
             {/* Avatar */}
             <div className="relative flex-shrink-0">
                 {avatar ? (
-                    <img src={avatar} className="w-14 h-14 rounded-full object-cover" alt="" />
+                    <img src={getAvatarUrl(avatar)} className="w-14 h-14 rounded-full object-cover" alt="" />
                 ) : (
                     <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#f09433] to-[#bc1888] flex items-center justify-center text-white font-bold text-lg">
                         {name[0].toUpperCase()}
@@ -70,7 +71,7 @@ function MessageBubble({ msg, isMe, showAvatar, avatar, username }) {
                     isMe ? 'border-[#E1306C]/30' : 'border-surface-border'
                 }`}>
                     {msg.media_url && (
-                        <img src={msg.media_url} className="w-full aspect-square object-cover" alt="shared post" />
+                        <img src={getMediaUrl(msg.media_url)} className="w-full aspect-square object-cover" alt="shared post" />
                     )}
                     <div className={`px-3 py-1.5 text-xs ${isMe ? 'bg-[#E1306C]/20 text-text-secondary' : 'bg-surface-hover text-text-secondary'}`}>
                         📷 Shared a post
@@ -86,7 +87,7 @@ function MessageBubble({ msg, isMe, showAvatar, avatar, username }) {
             {!isMe && (
                 <div className="w-6 flex-shrink-0 mb-1">
                     {showAvatar ? (
-                        avatar ? <img src={avatar} className="w-6 h-6 rounded-full object-cover" alt="" />
+                        avatar ? <img src={getAvatarUrl(avatar)} className="w-6 h-6 rounded-full object-cover" alt="" />
                               : <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#f09433] to-[#bc1888] flex items-center justify-center text-white text-[9px] font-bold">
                                     {username?.[0]?.toUpperCase()}
                                 </div>
@@ -105,7 +106,7 @@ function MessageBubble({ msg, isMe, showAvatar, avatar, username }) {
             >
                 {isUnsent ? 'This message was unsent' : msg.content}
                 {msg.media_url && !msg.shared_post_id && (
-                    <img src={msg.media_url} className="rounded-lg max-w-full mt-1" alt="" />
+                    <img src={getMediaUrl(msg.media_url)} className="rounded-lg max-w-full mt-1" alt="" />
                 )}
             </div>
 
@@ -246,7 +247,7 @@ export default function DirectPage() {
                                 <HiArrowLeft className="w-6 h-6" />
                             </button>
                             {convAvatar ? (
-                                <img src={convAvatar} className="w-9 h-9 rounded-full object-cover" alt="" />
+                                <img src={getAvatarUrl(convAvatar)} className="w-9 h-9 rounded-full object-cover" alt="" />
                             ) : (
                                 <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#f09433] to-[#bc1888] flex items-center justify-center text-white font-bold text-sm">
                                     {convTitle[0]?.toUpperCase()}

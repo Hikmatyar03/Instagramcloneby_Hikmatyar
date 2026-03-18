@@ -7,6 +7,7 @@ import { searchAPI } from '../../api/client';
 import { useUIStore } from '../../store/uiStore';
 import { HiX, HiSearch } from 'react-icons/hi';
 import { useState } from 'react';
+import { getAvatarUrl } from '../../utils/media';
 
 export default function SearchPanel() {
     const { searchOpen, setSearchOpen } = useUIStore();
@@ -55,7 +56,7 @@ export default function SearchPanel() {
                             <Link key={u._id} to={`/${u.username}`} onClick={() => setSearchOpen(false)}
                                 className="flex items-center gap-3 p-2 rounded-xl hover:bg-surface-hover">
                                 {u.avatar_url ? (
-                                    <img src={u.avatar_url} className="w-10 h-10 rounded-full object-cover" alt={u.username} />
+                                    <img src={getAvatarUrl(u.avatar_url)} className="w-10 h-10 rounded-full object-cover" alt={u.username} />
                                 ) : (
                                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white font-bold">
                                         {u.username[0].toUpperCase()}

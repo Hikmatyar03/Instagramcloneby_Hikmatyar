@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userAPI } from '../../api/client';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
+import { getAvatarUrl } from '../../utils/media';
 
 export default function SuggestionsPanel() {
     const { user } = useAuthStore();
@@ -27,7 +28,7 @@ export default function SuggestionsPanel() {
             <div className="flex items-center justify-between mb-4">
                 <Link to={`/${user.username}`} className="flex items-center gap-3">
                     {user.avatar_url ? (
-                        <img src={user.avatar_url} className="w-11 h-11 rounded-full object-cover" alt="" />
+                        <img src={getAvatarUrl(user.avatar_url)} className="w-11 h-11 rounded-full object-cover" alt="" />
                     ) : (
                         <div className="w-11 h-11 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white font-bold">
                             {user.username?.[0]?.toUpperCase()}
@@ -51,7 +52,7 @@ export default function SuggestionsPanel() {
                             <div key={u._id} className="flex items-center justify-between">
                                 <Link to={`/${u.username}`} className="flex items-center gap-2.5 flex-1 min-w-0">
                                     {u.avatar_url ? (
-                                        <img src={u.avatar_url} className="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />
+                                        <img src={getAvatarUrl(u.avatar_url)} className="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />
                                     ) : (
                                         <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
                                             {u.username[0].toUpperCase()}

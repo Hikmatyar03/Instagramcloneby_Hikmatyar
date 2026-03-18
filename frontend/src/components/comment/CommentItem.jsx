@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { formatDistanceToNow } from 'date-fns';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { postAPI } from '../../api/client';
+import { getAvatarUrl } from '../../utils/media';
 
 export default function CommentItem({ comment, postId }) {
     const qc = useQueryClient();
@@ -21,7 +22,7 @@ export default function CommentItem({ comment, postId }) {
     return (
         <div className="flex gap-2.5">
             {author?.avatar_url ? (
-                <img src={author.avatar_url} className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" alt="" />
+                <img src={getAvatarUrl(author.avatar_url)} className="w-7 h-7 rounded-full object-cover flex-shrink-0 mt-0.5" alt="" />
             ) : (
                 <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
                     {author?.username?.[0]?.toUpperCase()}

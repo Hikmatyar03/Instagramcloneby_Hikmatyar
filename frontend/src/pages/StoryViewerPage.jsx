@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { userAPI, storyAPI } from '../api/client';
 import { motion } from 'framer-motion';
 import { HiX, HiChevronLeft, HiChevronRight } from 'react-icons/hi';
+import { getMediaUrl } from '../utils/media';
 
 const STORY_DURATION = 5000; // 5s for images
 
@@ -74,9 +75,9 @@ export default function StoryViewerPage() {
                 onTouchEnd={() => setPaused(false)}
             >
                 {story.media_type === 'video' ? (
-                    <video src={story.media_url} className="w-full h-full object-contain" autoPlay muted loop />
+                    <video src={getMediaUrl(story.media_url)} className="w-full h-full object-contain" autoPlay muted loop />
                 ) : (
-                    <img src={story.media_url} alt="" className="w-full h-full object-contain" />
+                    <img src={getMediaUrl(story.media_url)} alt="" className="w-full h-full object-contain" />
                 )}
             </div>
 

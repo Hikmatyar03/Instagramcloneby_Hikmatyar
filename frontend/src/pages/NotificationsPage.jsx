@@ -6,6 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useNotifStore } from '../store/uiStore';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { getAvatarUrl, getMediaUrl } from '../utils/media';
 
 function NotifItem({ notif }) {
     const actor = notif.from_user_id;
@@ -23,7 +24,7 @@ function NotifItem({ notif }) {
         <div className={`flex items-center gap-3 px-4 py-3 hover:bg-surface-hover border-b border-surface-border/50 ${!notif.is_read ? 'bg-surface-card/50' : ''}`}>
             <Link to={`/${actor?.username}`} className="flex-shrink-0">
                 {actor?.avatar_url ? (
-                    <img src={actor.avatar_url} className="w-10 h-10 rounded-full object-cover ring-1 ring-surface-border" alt={actor.username} />
+                    <img src={getAvatarUrl(actor.avatar_url)} className="w-10 h-10 rounded-full object-cover ring-1 ring-surface-border" alt={actor.username} />
                 ) : (
                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white font-bold">
                         {actor?.username?.[0]?.toUpperCase()}
@@ -41,7 +42,7 @@ function NotifItem({ notif }) {
 
             {notif.post_id?.media?.[0] && (
                 <Link to={`/p/${notif.post_id._id}`} className="flex-shrink-0">
-                    <img src={notif.post_id.media[0].thumbnail_url} className="w-10 h-10 object-cover rounded ring-1 ring-surface-border" alt="" />
+                    <img src={getMediaUrl(notif.post_id.media[0].thumbnail_url)} className="w-10 h-10 object-cover rounded ring-1 ring-surface-border" alt="" />
                 </Link>
             )}
         </div>
@@ -68,7 +69,7 @@ function FollowRequestItem({ req }) {
         <div className="flex items-center gap-3 px-4 py-3 hover:bg-surface-hover border-b border-surface-border/50 bg-blue-500/5">
             <Link to={`/${actor?.username}`} className="flex-shrink-0">
                 {actor?.avatar_url ? (
-                    <img src={actor.avatar_url} className="w-10 h-10 rounded-full object-cover ring-1 ring-surface-border" alt={actor.username} />
+                    <img src={getAvatarUrl(actor.avatar_url)} className="w-10 h-10 rounded-full object-cover ring-1 ring-surface-border" alt={actor.username} />
                 ) : (
                     <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white font-bold">
                         {actor?.username?.[0]?.toUpperCase()}

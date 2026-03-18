@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { reelsAPI, postAPI } from '../api/client';
 import { HiHeart, HiOutlineHeart, HiChat, HiVolumeOff, HiVolumeUp, HiX } from 'react-icons/hi';
+import { getMediaUrl } from '../utils/media';
 
 export default function ReelPage() {
     const { reelId } = useParams();
@@ -45,7 +46,7 @@ export default function ReelPage() {
                 {reel?.media?.[0]?.thumbnail_url && (
                     <img
                         className="reel-thumb"
-                        src={reel.media[0].thumbnail_url}
+                        src={getMediaUrl(reel.media[0].thumbnail_url)}
                         alt=""
                         style={{ zIndex: 0 }}
                     />
@@ -53,7 +54,7 @@ export default function ReelPage() {
                 {reel?.media?.[0]?.full_url || reel?.media?.[0]?.hls_url ? (
                     <video
                         ref={videoRef}
-                        src={reel.media[0].full_url || reel.media[0].hls_url}
+                        src={getMediaUrl(reel.media[0].full_url || reel.media[0].hls_url)}
                         autoPlay
                         loop
                         playsInline

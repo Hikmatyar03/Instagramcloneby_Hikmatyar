@@ -10,6 +10,7 @@ import { authAPI } from '../../api/client';
 import toast from 'react-hot-toast';
 import CreatePostModal from '../post/CreatePostModal';
 import SearchPanel from '../search/SearchPanel';
+import { getAvatarUrl } from '../../utils/media';
 
 export default function AppLayout() {
     const { user, logout } = useAuthStore();
@@ -96,7 +97,7 @@ export default function AppLayout() {
                         <div className="mt-2 flex items-center justify-between px-3 py-2 rounded-xl hover:bg-surface-hover cursor-pointer group">
                             <div className="flex items-center gap-3 overflow-hidden" onClick={() => navigate(`/${user.username}`)}>
                                 {user.avatar_url ? (
-                                    <img src={user.avatar_url} alt={user.username} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                                    <img src={getAvatarUrl(user.avatar_url)} alt={user.username} className="w-8 h-8 rounded-full object-cover shrink-0" />
                                 ) : (
                                     <div className="w-8 h-8 rounded-full shrink-0 bg-gradient-to-tr from-brand-400 to-brand-600 flex items-center justify-center text-white text-sm font-bold">
                                         {user.username?.[0]?.toUpperCase()}

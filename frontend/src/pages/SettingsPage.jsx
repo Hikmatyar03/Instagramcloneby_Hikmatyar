@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { userAPI, authAPI } from '../api/client';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
+import { getAvatarUrl } from '../utils/media';
 
 const TABS = [
     { key: 'edit', label: 'Edit Profile' },
@@ -91,7 +92,7 @@ export default function SettingsPage() {
                         <div className="flex items-center gap-4 p-4 bg-surface-muted rounded-xl">
                             <div className="w-16 h-16 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white font-bold text-xl">
                                 {user?.avatar_url
-                                    ? <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                                    ? <img src={getAvatarUrl(user.avatar_url)} alt="" className="w-full h-full object-cover" />
                                     : user?.username?.[0]?.toUpperCase()
                                 }
                             </div>

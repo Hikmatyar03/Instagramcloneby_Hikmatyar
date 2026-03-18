@@ -8,6 +8,7 @@ import InfiniteScroll from 'react-infinite-scroll-component';
 import { useAuthStore } from '../store/authStore';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import { getAvatarUrl } from '../utils/media';
 
 export default function PostDetailPage() {
     const { postId } = useParams();
@@ -68,7 +69,7 @@ export default function PostDetailPage() {
                     {/* Comment Input */}
                     <form onSubmit={handleComment} className="border-t border-surface-border p-3 flex items-center gap-3">
                         {user?.avatar_url ? (
-                            <img src={user.avatar_url} className="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />
+                            <img src={getAvatarUrl(user.avatar_url)} className="w-8 h-8 rounded-full object-cover flex-shrink-0" alt="" />
                         ) : (
                             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-brand-400 to-brand-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                                 {user?.username?.[0]?.toUpperCase()}
