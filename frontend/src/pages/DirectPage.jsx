@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useInfiniteQuery } from '@tanstack/react-query';
-import { messageAPI } from '../api/client';
+import { messageAPI, postAPI } from '../api/client';
 import { getSocket } from '../api/socket';
 import { useAuthStore } from '../store/authStore';
 import { Link } from 'react-router-dom';
@@ -67,16 +67,19 @@ function MessageBubble({ msg, isMe, showAvatar, avatar, username }) {
     if (msg.message_type === 'post_share' && msg.shared_post_id) {
         return (
             <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-1`}>
-                <div className={`max-w-[260px] rounded-2xl overflow-hidden border ${
-                    isMe ? 'border-[#E1306C]/30' : 'border-surface-border'
-                }`}>
+                <Link
+                    to={`/p/${msg.shared_post_id}`}
+                    className={`max-w-[260px] rounded-2xl overflow-hidden border block hover:opacity-90 transition-opacity ${
+                        isMe ? 'border-[#E1306C]/30' : 'border-surface-border'
+                    }`}
+                >
                     {msg.media_url && (
                         <img src={getMediaUrl(msg.media_url)} className="w-full aspect-square object-cover" alt="shared post" />
                     )}
                     <div className={`px-3 py-1.5 text-xs ${isMe ? 'bg-[#E1306C]/20 text-text-secondary' : 'bg-surface-hover text-text-secondary'}`}>
-                        📷 Shared a post
+                        📷 Shared a post — tap to view
                     </div>
-                </div>
+                </Link>
             </div>
         );
     }
@@ -132,7 +135,7 @@ export default function DirectPage() {
     const { data: convsData } = useQuery({
         queryKey: ['conversations'],
         queryFn: () => messageAPI.getConversations().then(r => r.data.data),
-        refetchInterval: 15_000,
+        refetchInterval: 30_000,
     });
 
     // ── Fetch messages for active conversation ──

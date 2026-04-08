@@ -1,19 +1,15 @@
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 
-const ensureDir = (dir) => {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-};
-
-const UPLOAD_BASE = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
+// All storage uses memory — files are uploaded directly to Cloudinary as buffers.
+// Nothing is ever written to the ephemeral Render filesystem.
+const memStorage = multer.memoryStorage();
 
 const imageFilter = (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (allowed.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error('Only JPEG, PNG, WebP images are allowed'), false);
+        cb(new Error('Only JPEG, PNG, WebP, GIF images are allowed'), false);
     }
 };
 
@@ -27,7 +23,7 @@ const videoFilter = (req, file, cb) => {
 };
 
 const mediaFilter = (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/webm'];
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'video/mp4', 'video/quicktime', 'video/webm'];
     if (allowed.includes(file.mimetype)) {
         cb(null, true);
     } else {
@@ -35,52 +31,13 @@ const mediaFilter = (req, file, cb) => {
     }
 };
 
-// Post media upload — disk storage
-const postStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(UPLOAD_BASE, 'posts', req.user._id.toString());
-        ensureDir(dir);
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-    },
-});
-
-// Avatar upload — disk storage
-const avatarStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(UPLOAD_BASE, 'avatars');
-        ensureDir(dir);
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
-        cb(null, `${req.user._id.toString()}${ext}`);
-    },
-});
-
-// Story upload
-const storyStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(UPLOAD_BASE, 'stories', req.user._id.toString());
-        ensureDir(dir);
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        const ext = path.extname(file.originalname).toLowerCase();
-        cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-    },
-});
-
 const MAX_IMAGE_SIZE  = parseInt(process.env.MAX_IMAGE_SIZE_MB  || '10') * 1024 * 1024; // 10 MB
-const MAX_VIDEO_SIZE  = parseInt(process.env.MAX_VIDEO_SIZE_MB  || '50') * 1024 * 1024; // 50 MB
+const MAX_VIDEO_SIZE  = parseInt(process.env.MAX_VIDEO_SIZE_MB  || '100') * 1024 * 1024; // 100 MB
 const MAX_AVATAR_SIZE = parseInt(process.env.MAX_AVATAR_SIZE_MB || '5')  * 1024 * 1024; // 5 MB
 
 // Post media upload — supports 'files' array + optional 'thumbnail'
 const uploadPostMedia = multer({
-    storage: postStorage,
+    storage: memStorage,
     fileFilter: mediaFilter,
     limits: { files: 11, fileSize: MAX_VIDEO_SIZE }, // 10 media + 1 thumbnail
 }).fields([
@@ -90,7 +47,7 @@ const uploadPostMedia = multer({
 
 // Reel upload — 'files' = the video, 'thumbnail' = optional first-frame JPEG
 const uploadReelMedia = multer({
-    storage: postStorage,
+    storage: memStorage,
     fileFilter: mediaFilter,
     limits: { files: 2, fileSize: MAX_VIDEO_SIZE },
 }).fields([
@@ -99,31 +56,21 @@ const uploadReelMedia = multer({
 ]);
 
 const uploadAvatar = multer({
-    storage: avatarStorage,
+    storage: memStorage,
     fileFilter: imageFilter,
     limits: { files: 1, fileSize: MAX_AVATAR_SIZE },
 }).single('avatar');
 
 const uploadStory = multer({
-    storage: storyStorage,
+    storage: memStorage,
     fileFilter: mediaFilter,
     limits: { files: 1, fileSize: MAX_VIDEO_SIZE },
 }).single('file');
 
 const uploadMessageMedia = multer({
-    storage: multer.diskStorage({
-        destination: (req, file, cb) => {
-            const dir = path.join(UPLOAD_BASE, 'messages', req.user._id.toString());
-            ensureDir(dir);
-            cb(null, dir);
-        },
-        filename: (req, file, cb) => {
-            const ext = path.extname(file.originalname).toLowerCase();
-            cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-        },
-    }),
+    storage: memStorage,
     fileFilter: mediaFilter,
     limits: { files: 1, fileSize: MAX_VIDEO_SIZE },
 }).single('media');
 
-module.exports = { uploadPostMedia, uploadReelMedia, uploadAvatar, uploadStory, uploadMessageMedia, UPLOAD_BASE };
+module.exports = { uploadPostMedia, uploadReelMedia, uploadAvatar, uploadStory, uploadMessageMedia };

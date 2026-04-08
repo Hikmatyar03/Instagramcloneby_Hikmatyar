@@ -92,8 +92,8 @@ router.post('/:id/like', authenticate, async (req, res, next) => {
 // DELETE /posts/:id/like
 router.delete('/:id/like', authenticate, async (req, res, next) => {
     try {
-        await PostService.unlikePost(req.params.id, req.user._id);
-        res.status(204).end();
+        const result = await PostService.unlikePost(req.params.id, req.user._id);
+        res.json({ success: true, data: result });
     } catch (e) { next(e); }
 });
 

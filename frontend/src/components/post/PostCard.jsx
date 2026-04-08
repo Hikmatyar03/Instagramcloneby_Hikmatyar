@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -8,6 +8,7 @@ import { useAuthStore } from '../../store/authStore';
 import {
     HiHeart, HiOutlineHeart, HiChat, HiBookmark, HiOutlineBookmark,
     HiPaperAirplane, HiDotsHorizontal, HiX, HiSearch, HiTrash, HiArchive,
+    HiVolumeOff, HiVolumeUp,
 } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { getMediaUrl } from '../../utils/media';
@@ -16,7 +17,7 @@ import { getMediaUrl } from '../../utils/media';
 
 function ShareModal({ postId, onClose }) {
     const [query, setQuery] = useState('');
-    const [sharing, setSharing] = useState(null); // userId being shared to
+    const [sharing, setSharing] = useState(null);
 
     const { data: searchResults } = useQuery({
         queryKey: ['user-search', query],
@@ -50,7 +51,6 @@ function ShareModal({ postId, onClose }) {
                     <button onClick={onClose}><HiX className="w-5 h-5 text-text-muted" /></button>
                 </div>
 
-                {/* Search */}
                 <div className="relative mb-3">
                     <HiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted w-4 h-4" />
                     <input
@@ -62,7 +62,6 @@ function ShareModal({ postId, onClose }) {
                     />
                 </div>
 
-                {/* Results */}
                 <div className="overflow-y-auto flex-1 space-y-1">
                     {searchResults?.map(u => (
                         <button
@@ -158,6 +157,51 @@ function OptionsMenu({ post, isOwner, onClose, onDeleted }) {
     );
 }
 
+/* ─── Video Player (BUG 6 & 7) ───────────────────────────────────────────── */
+
+function VideoPlayer({ src, poster }) {
+    const videoRef = useRef(null);
+    const [muted, setMuted] = useState(true);
+
+    useEffect(() => {
+        // Attempt HLS if available and src is m3u8
+        if (src && src.endsWith('.m3u8')) {
+            import('hls.js').then(({ default: Hls }) => {
+                if (Hls.isSupported() && videoRef.current) {
+                    const hls = new Hls();
+                    hls.loadSource(src);
+                    hls.attachMedia(videoRef.current);
+                    return () => hls.destroy();
+                }
+            }).catch(() => {});
+        }
+    }, [src]);
+
+    return (
+        <div className="relative w-full h-full">
+            <video
+                ref={videoRef}
+                src={src}
+                poster={poster}
+                className="w-full h-full object-cover"
+                loop
+                playsInline
+                autoPlay
+                muted={muted}
+                onError={(e) => { e.target.style.opacity = '0.3'; }}
+            />
+            {/* Mute toggle */}
+            <button
+                onClick={(e) => { e.stopPropagation(); setMuted(m => !m); }}
+                className="absolute bottom-3 right-3 bg-black/50 rounded-full p-1.5 text-white hover:bg-black/70 transition-colors"
+                aria-label={muted ? 'Unmute' : 'Mute'}
+            >
+                {muted ? <HiVolumeOff className="w-4 h-4" /> : <HiVolumeUp className="w-4 h-4" />}
+            </button>
+        </div>
+    );
+}
+
 /* ─── Post Card ───────────────────────────────────────────────────────────── */
 
 export default function PostCard({ post, onDeleted }) {
@@ -174,10 +218,27 @@ export default function PostCard({ post, onDeleted }) {
 
     const isOwner = user?._id === (post.user_id?._id || post.user_id);
 
+    // BUG 4 FIX: onSuccess reads likes_count from server response and syncs local state
     const likeMutation = useMutation({
         mutationFn: () => liked ? postAPI.unlike(post._id) : postAPI.like(post._id),
-        onMutate: () => { setLiked(!liked); setLikesCount(c => c + (liked ? -1 : 1)); },
-        onError: () => { setLiked(liked); setLikesCount(c => c + (liked ? 1 : -1)); },
+        onMutate: () => {
+            // Optimistic update
+            setLiked(prev => !prev);
+            setLikesCount(c => c + (liked ? -1 : 1));
+        },
+        onSuccess: (res) => {
+            // Sync with authoritative server value
+            const serverData = res?.data?.data;
+            if (serverData?.likes_count !== undefined) {
+                setLikesCount(serverData.likes_count);
+                setLiked(serverData.liked ?? !liked);
+            }
+        },
+        onError: () => {
+            // Rollback optimistic update
+            setLiked(prev => !prev);
+            setLikesCount(c => c + (liked ? 1 : -1));
+        },
     });
 
     const saveMutation = useMutation({
@@ -189,13 +250,20 @@ export default function PostCard({ post, onDeleted }) {
     const handleDoubleTap = () => {
         if (!liked) {
             setLiked(true); setLikesCount(c => c + 1);
-            postAPI.like(post._id).catch(() => { setLiked(false); setLikesCount(c => c - 1); });
+            postAPI.like(post._id)
+                .then(res => {
+                    const d = res?.data?.data;
+                    if (d?.likes_count !== undefined) setLikesCount(d.likes_count);
+                })
+                .catch(() => { setLiked(false); setLikesCount(c => c - 1); });
         }
         setShowHeart(true);
         setTimeout(() => setShowHeart(false), 800);
     };
 
     const author = post.user_id;
+    const currentMediaItem = post.media?.[currentMedia];
+    const isVideo = currentMediaItem?.type === 'video';
 
     return (
         <>
@@ -236,16 +304,23 @@ export default function PostCard({ post, onDeleted }) {
                     </div>
                 </div>
 
-                {/* Media */}
+                {/* Media — BUG 6/7: detect video type and render <video> accordingly */}
                 <div className="relative aspect-square bg-surface-card overflow-hidden cursor-pointer" onDoubleClick={handleDoubleTap}>
                     {post.media?.length > 0 && (
-                        <img
-                            src={getMediaUrl(post.media[currentMedia]?.full_url || post.media[currentMedia]?.medium_url)}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            onError={(e) => { e.target.style.opacity = '0.3'; }}
-                        />
+                        isVideo ? (
+                            <VideoPlayer
+                                src={getMediaUrl(currentMediaItem?.full_url || currentMediaItem?.original_url)}
+                                poster={getMediaUrl(currentMediaItem?.thumbnail_url)}
+                            />
+                        ) : (
+                            <img
+                                src={getMediaUrl(currentMediaItem?.full_url || currentMediaItem?.medium_url)}
+                                alt=""
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                                onError={(e) => { e.target.style.opacity = '0.3'; }}
+                            />
+                        )
                     )}
                     <AnimatePresence>
                         {showHeart && (

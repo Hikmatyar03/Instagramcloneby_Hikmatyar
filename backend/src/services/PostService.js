@@ -4,9 +4,7 @@ const User = require('../models/User');
 const Follow = require('../models/Follow');
 const Like = require('../models/Like');
 const Save = require('../models/Save');
-const path = require('path');
-const fs = require('fs');
-const { uploadFile, isConfigured, deleteResource } = require('./CloudinaryService');
+const { uploadBuffer, deleteResource } = require('./CloudinaryService');
 
 // Extract hashtags from caption
 const extractHashtags = (caption) => {
@@ -20,6 +18,17 @@ const extractMentions = (caption) => {
     if (!caption) return [];
     const matches = caption.match(/@([a-zA-Z0-9_]+)/g) || [];
     return [...new Set(matches.map(m => m.slice(1).toLowerCase()))];
+};
+
+/**
+ * Generate a Cloudinary video thumbnail URL from a video URL.
+ * Replaces /video/upload/ with /video/upload/so_0,w_600/ and changes extension to .jpg.
+ */
+const makeVideoThumbnail = (videoUrl) => {
+    if (!videoUrl || !videoUrl.includes('/video/upload/')) return videoUrl;
+    return videoUrl
+        .replace('/video/upload/', '/video/upload/so_0,w_600/')
+        .replace(/\.(mp4|mov|avi|webm)(\?.*)?$/i, '.jpg');
 };
 
 class PostService {
@@ -40,77 +49,49 @@ class PostService {
             ? files
             : (files?.files || []);  // req.files.files from .fields()
         const thumbFiles = Array.isArray(files) ? [] : (files?.thumbnail || []);
-        const thumbUrl = thumbFiles[0]
-            ? `/${path.relative(path.join(__dirname, '../../'), thumbFiles[0].path).replace(/\\/g, '/')}`
-            : null;
 
-        // Build media array from uploaded files
+        // Build media array — upload every file buffer to Cloudinary
         let media = [];
-        if (isConfigured()) {
-            // Upload each file to Cloudinary and construct media items
-            for (let i = 0; i < mediaFiles.length; i++) {
-                const file = mediaFiles[i];
-                try {
-                    const res = await uploadFile(file.path, { folder: `instaclone/posts/${userId}` });
-                    const isVideo = res.resource_type === 'video';
-                    media.push({
-                        order: i,
-                        type: isVideo ? 'video' : 'image',
-                        original_url: res.secure_url,
-                        thumbnail_url: (isVideo && res.thumbnail_url) ? res.thumbnail_url : res.secure_url,
-                        full_url: res.secure_url,
-                        public_id: res.public_id,
-                        thumbnail_public_id: res.public_id,
-                        width: res.width || 1080,
-                        height: res.height || 1080,
-                        duration: res.duration,
-                        size_bytes: res.bytes,
-                    });
-                } catch (e) {
-                    // If Cloudinary upload fails for a file, fallback to local path
-                    const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
-                    const fileUrl = `/${relativePart}`;
-                    media.push({
-                        order: i,
-                        type: file.mimetype.startsWith('video/') ? 'video' : 'image',
-                        original_url: fileUrl,
-                        thumbnail_url: (file.mimetype.startsWith('video/') && thumbUrl) ? thumbUrl : fileUrl,
-                        full_url: fileUrl,
-                        // no public_id when using local fallback
-                        public_id: undefined,
-                        thumbnail_public_id: undefined,
-                        width: 1080,
-                        height: 1080,
-                        size_bytes: file.size,
-                    });
-                }
+        let uploadedThumbUrl = null;
+
+        // Upload the separate thumbnail if provided
+        if (thumbFiles[0]) {
+            try {
+                const t = await uploadBuffer(thumbFiles[0].buffer, {
+                    folder: `instaclone/posts/${userId}/thumbs`,
+                    resource_type: 'image',
+                });
+                uploadedThumbUrl = t.secure_url;
+            } catch (e) {
+                console.warn('[PostService] thumbnail upload failed:', e.message);
             }
-            // If a thumbnail file was provided separately (e.g., for video), upload it too and set for the first media item if missing
-            if (thumbFiles[0]) {
-                try {
-                    const t = await uploadFile(thumbFiles[0].path, { folder: `instaclone/posts/${userId}/thumbs` });
-                    if (media[0]) {
-                        media[0].thumbnail_url = t.secure_url;
-                        media[0].thumbnail_public_id = t.public_id || media[0].thumbnail_public_id;
-                    }
-                } catch (e) { }
-            }
-        } else {
-            media = mediaFiles.map((file, i) => {
-                const isVideo = file.mimetype.startsWith('video/');
-                const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
-                const fileUrl = `/${relativePart}`;
-                return {
-                    order: i,
-                    type: isVideo ? 'video' : 'image',
-                    original_url: fileUrl,
-                    // Use the uploaded thumbnail blob if available, else fall back to the file itself
-                    thumbnail_url: (isVideo && thumbUrl) ? thumbUrl : fileUrl,
-                    full_url: fileUrl,
-                    width: 1080,
-                    height: 1080,
-                    size_bytes: file.size,
-                };
+        }
+
+        for (let i = 0; i < mediaFiles.length; i++) {
+            const file = mediaFiles[i];
+            const isVideo = file.mimetype.startsWith('video/');
+
+            const res = await uploadBuffer(file.buffer, {
+                folder: `instaclone/posts/${userId}`,
+                resource_type: isVideo ? 'video' : 'image',
+            });
+
+            const videoThumb = isVideo ? makeVideoThumbnail(res.secure_url) : null;
+
+            media.push({
+                order: i,
+                type: isVideo ? 'video' : 'image',
+                original_url: res.secure_url,
+                thumbnail_url: isVideo
+                    ? (uploadedThumbUrl || videoThumb || res.secure_url)
+                    : (uploadedThumbUrl && i === 0 ? uploadedThumbUrl : res.secure_url),
+                full_url: res.secure_url,
+                public_id: res.public_id,
+                thumbnail_public_id: uploadedThumbUrl ? undefined : res.public_id,
+                width: res.width || 1080,
+                height: res.height || 1080,
+                duration: res.duration,
+                size_bytes: res.bytes,
             });
         }
 
@@ -221,10 +202,18 @@ class PostService {
 
         try {
             await Like.create({ user_id: userId, target_id: postId, target_type: 'post' });
-            await Post.findByIdAndUpdate(postId, { $inc: { likes_count: 1 } });
-            return { liked: true, likes_count: post.likes_count + 1 };
+            // BUG 4 FIX: use { new: true } to get the updated count from DB, not a stale pre-update value
+            const updated = await Post.findByIdAndUpdate(
+                postId,
+                { $inc: { likes_count: 1 } },
+                { new: true },
+            );
+            return { liked: true, likes_count: updated.likes_count };
         } catch (e) {
-            if (e.code === 11000) return { liked: true, likes_count: post.likes_count }; // Already liked
+            if (e.code === 11000) {
+                // Already liked — still return the actual DB count
+                return { liked: true, likes_count: post.likes_count };
+            }
             throw e;
         }
     }
@@ -239,9 +228,15 @@ class PostService {
 
         const deleted = await Like.findOneAndDelete({ user_id: userId, target_id: postId, target_type: 'post' });
         if (deleted) {
-            await Post.findByIdAndUpdate(postId, { $inc: { likes_count: -1 } });
+            // BUG 4 FIX: return updated count from DB
+            const updated = await Post.findByIdAndUpdate(
+                postId,
+                { $inc: { likes_count: -1 } },
+                { new: true },
+            );
+            return { liked: false, likes_count: Math.max(0, updated.likes_count) };
         }
-        return { liked: false };
+        return { liked: false, likes_count: post.likes_count };
     }
 
     async getPostLikes(postId, cursor, limit = 20) {

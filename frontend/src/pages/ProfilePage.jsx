@@ -4,9 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userAPI, postAPI, messageAPI } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 import { motion } from 'framer-motion';
-import { HiOutlineCog, HiViewGrid, HiFilm, HiTag, HiChat } from 'react-icons/hi';
+import { HiOutlineCog, HiViewGrid, HiFilm, HiTag, HiChat, HiLockClosed } from 'react-icons/hi';
 import toast from 'react-hot-toast';
 import { getAvatarUrl, getMediaUrl } from '../utils/media';
+import FollowListModal from '../components/user/FollowListModal';
 
 const TABS = [
     { key: 'posts', label: 'Posts', icon: HiViewGrid },
@@ -18,6 +19,7 @@ export default function ProfilePage() {
     const { username } = useParams();
     const { user: me } = useAuthStore();
     const [activeTab, setActiveTab] = useState('posts');
+    const [followModal, setFollowModal] = useState(null); // { type: 'followers' | 'following' }
     const qc = useQueryClient();
     const navigate = useNavigate();
 
@@ -26,10 +28,16 @@ export default function ProfilePage() {
         queryFn: () => userAPI.getProfile(username).then(r => r.data.data),
     });
 
+    const profile = profileData;
+    const isMe = me?._id === profile?._id || me?.username === username;
+
+    // BUG 3 FIX: don't fire posts query if private and not following (and not owner)
+    const isPrivateAndBlocked = profile?.is_private && profile?.is_private_and_not_following && !isMe;
+
     const { data: postsData } = useQuery({
         queryKey: ['user-posts', username, activeTab],
         queryFn: () => (activeTab === 'reels' ? userAPI.getUserReels(username) : userAPI.getUserPosts(username)).then(r => r.data.data),
-        enabled: !!username,
+        enabled: !!username && !isPrivateAndBlocked,
     });
 
     const followMutation = useMutation({
@@ -48,6 +56,17 @@ export default function ProfilePage() {
         onError: (e) => toast.error(e.response?.data?.message || 'Could not open conversation'),
     });
 
+    // BUG 2: can the user open the follow list modal?
+    const canViewFollowList = isMe || !profile?.is_private || profile?.is_following;
+
+    const handleFollowStatClick = (type) => {
+        if (!canViewFollowList) {
+            toast.error('This account is private');
+            return;
+        }
+        setFollowModal({ type });
+    };
+
     if (isLoading) return (
         <div className="max-w-[935px] mx-auto px-4 py-12 animate-pulse space-y-6">
             <div className="flex gap-8">
@@ -59,9 +78,6 @@ export default function ProfilePage() {
             </div>
         </div>
     );
-
-    const profile = profileData;
-    const isMe = me?._id === profile?._id || me?.username === username;
 
     return (
         <div className="max-w-[935px] mx-auto px-4 py-8">
@@ -107,7 +123,6 @@ export default function ProfilePage() {
                                         : 'Follow'
                                     }
                                 </button>
-                                {/* Message button: always visible for public accounts, or when following private accounts */}
                                 {(!profile?.is_private || profile?.is_following) && (
                                     <button
                                         onClick={() => messageMutation.mutate()}
@@ -123,18 +138,28 @@ export default function ProfilePage() {
                         {isMe && <button className="p-1.5 text-text-primary hover:bg-surface-hover rounded-lg"><HiOutlineCog className="w-5 h-5" /></button>}
                     </div>
 
-                    {/* Stats */}
+                    {/* Stats — BUG 2 FIX: make followers/following clickable buttons */}
                     <div className="flex gap-6 text-sm">
-                        {[
-                            { label: 'posts', value: profile?.posts_count ?? 0 },
-                            { label: 'followers', value: profile?.followers_count ?? 0 },
-                            { label: 'following', value: profile?.following_count ?? 0 },
-                        ].map(({ label, value }) => (
-                            <div key={label} className="text-center sm:text-left">
-                                <span className="font-semibold">{value.toLocaleString()}</span>
-                                <span className="text-text-secondary ml-1">{label}</span>
-                            </div>
-                        ))}
+                        <div className="text-center sm:text-left">
+                            <span className="font-semibold">{(profile?.posts_count ?? 0).toLocaleString()}</span>
+                            <span className="text-text-secondary ml-1">posts</span>
+                        </div>
+
+                        <button
+                            onClick={() => handleFollowStatClick('followers')}
+                            className="text-center sm:text-left hover:opacity-70 transition-opacity focus:outline-none"
+                        >
+                            <span className="font-semibold">{(profile?.followers_count ?? 0).toLocaleString()}</span>
+                            <span className="text-text-secondary ml-1">followers</span>
+                        </button>
+
+                        <button
+                            onClick={() => handleFollowStatClick('following')}
+                            className="text-center sm:text-left hover:opacity-70 transition-opacity focus:outline-none"
+                        >
+                            <span className="font-semibold">{(profile?.following_count ?? 0).toLocaleString()}</span>
+                            <span className="text-text-secondary ml-1">following</span>
+                        </button>
                     </div>
 
                     {/* Bio */}
@@ -146,8 +171,8 @@ export default function ProfilePage() {
                         )}
                     </div>
 
-                    {/* Private and not following */}
-                    {profile?.is_private && profile?.is_private_and_not_following && !isMe && (
+                    {/* Private notice */}
+                    {isPrivateAndBlocked && (
                         <p className="text-text-secondary text-sm">This account is private. Follow to see their posts.</p>
                     )}
                 </div>
@@ -171,21 +196,42 @@ export default function ProfilePage() {
             </div>
 
             {/* ─── Posts Grid ──────────────────────────────── */}
-            {(!profile?.is_private || isMe || profile?.is_following) ? (
+            {isPrivateAndBlocked ? (
+                /* BUG 3 FIX: Show locked state for private accounts you don't follow */
+                <div className="flex flex-col items-center justify-center py-20 text-center">
+                    <div className="w-20 h-20 rounded-full border-2 border-text-muted flex items-center justify-center mb-5">
+                        <HiLockClosed className="w-10 h-10 text-text-muted" />
+                    </div>
+                    <p className="font-semibold text-lg mb-2">This account is private</p>
+                    <p className="text-sm text-text-secondary max-w-[280px]">
+                        Follow {profile?.username} to see their photos and videos.
+                    </p>
+                </div>
+            ) : (
                 <div className="grid grid-cols-3 gap-0.5 mt-0.5">
                     {(postsData?.posts || []).map(post => (
                         <Link key={post._id} to={`/p/${post._id}`} className="aspect-square overflow-hidden relative group bg-surface-muted">
-                            <img
-                                src={getMediaUrl(post.media?.[0]?.thumbnail_url || post.media?.[0]?.full_url)}
-                                alt=""
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            />
+                            {post.media?.[0]?.type === 'video' ? (
+                                <video
+                                    src={getMediaUrl(post.media[0].full_url)}
+                                    poster={getMediaUrl(post.media[0].thumbnail_url)}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                    muted
+                                    preload="none"
+                                />
+                            ) : (
+                                <img
+                                    src={getMediaUrl(post.media?.[0]?.thumbnail_url || post.media?.[0]?.full_url)}
+                                    alt=""
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                            )}
                             {post.media?.length > 1 && (
                                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100">
                                     <HiViewGrid className="w-4 h-4 text-white drop-shadow" />
                                 </div>
                             )}
-                            {post.type === 'reel' && (
+                            {(post.type === 'reel' || post.media?.[0]?.type === 'video') && (
                                 <div className="absolute top-2 right-2"><HiFilm className="w-4 h-4 text-white drop-shadow" /></div>
                             )}
                             <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-4 transition-opacity">
@@ -195,7 +241,18 @@ export default function ProfilePage() {
                         </Link>
                     ))}
                 </div>
-            ) : null}
+            )}
+
+            {/* ─── Follow List Modal (BUG 2) ───────────────── */}
+            {followModal && (
+                <FollowListModal
+                    type={followModal.type}
+                    username={username}
+                    isPrivate={profile?.is_private}
+                    canView={canViewFollowList}
+                    onClose={() => setFollowModal(null)}
+                />
+            )}
         </div>
     );
 }

@@ -1,8 +1,17 @@
 const Story = require('../models/Story');
 const Highlight = require('../models/Highlight');
 const Follow = require('../models/Follow');
-const path = require('path');
-const { uploadFile, isConfigured, deleteResource } = require('./CloudinaryService');
+const { uploadBuffer, deleteResource } = require('./CloudinaryService');
+
+/**
+ * Generate a Cloudinary video thumbnail URL from a video URL.
+ */
+const makeVideoThumbnail = (videoUrl) => {
+    if (!videoUrl || !videoUrl.includes('/video/upload/')) return videoUrl;
+    return videoUrl
+        .replace('/video/upload/', '/video/upload/so_0,w_600/')
+        .replace(/\.(mp4|mov|avi|webm)(\?.*)?$/i, '.jpg');
+};
 
 class StoryService {
     async createStory(userId, { caption, audience, stickers }, file) {
@@ -13,22 +22,16 @@ class StoryService {
         }
 
         const isVideo = file.mimetype.startsWith('video/');
-        let fileUrl;
-        let mediaPublicId;
-        if (isConfigured()) {
-            try {
-                const res = await uploadFile(file.path, { folder: `instaclone/stories/${userId}` });
-                fileUrl = res.secure_url;
-                mediaPublicId = res.public_id;
-            } catch (e) {
-                const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
-                fileUrl = `/${relativePart}`;
-            }
-        } else {
-            // path.relative gives e.g. 'uploads/stories/userId/file.ext'
-            const relativePart = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
-            fileUrl = `/${relativePart}`;
-        }
+
+        // Upload directly from memory buffer to Cloudinary (no disk writes)
+        const res = await uploadBuffer(file.buffer, {
+            folder: `instaclone/stories/${userId}`,
+            resource_type: isVideo ? 'video' : 'image',
+        });
+
+        const fileUrl = res.secure_url;
+        const mediaPublicId = res.public_id;
+        const thumbnailUrl = isVideo ? makeVideoThumbnail(fileUrl) : fileUrl;
 
         const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
@@ -37,7 +40,7 @@ class StoryService {
             media_type: isVideo ? 'video' : 'image',
             media_url: fileUrl,
             media_public_id: mediaPublicId,
-            thumbnail_url: fileUrl,
+            thumbnail_url: thumbnailUrl,
             thumbnail_public_id: undefined,
             duration: isVideo ? 15 : 5,
             caption,
@@ -115,11 +118,11 @@ class StoryService {
             err.status = 404;
             throw err;
         }
-        if (isConfigured() && story.media_public_id) {
+        if (story.media_public_id) {
             try { await deleteResource(story.media_public_id, story.media_type === 'video' ? 'video' : 'image'); } catch (e) { }
-            if (story.thumbnail_public_id) {
-                try { await deleteResource(story.thumbnail_public_id, 'image'); } catch (e) { }
-            }
+        }
+        if (story.thumbnail_public_id) {
+            try { await deleteResource(story.thumbnail_public_id, 'image'); } catch (e) { }
         }
         await story.deleteOne();
         return { deleted: true };
@@ -140,9 +143,10 @@ class StoryService {
     }
 
     async getViewers(storyId, userId) {
-        const story = await Story.findOne({ _id: storyId, user_id: userId });
+        const story = await Story.findOne({ _id: storyId, user_id: userId })
+            .populate('viewers.user_id', 'username full_name avatar_url is_verified');
         if (!story) {
-            const err = new Error('Story not found');
+            const err = new Error('Story not found or access denied');
             err.status = 404;
             throw err;
         }

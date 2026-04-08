@@ -29,6 +29,7 @@ const shareRoutes = require('./routes/share');
 
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 const { setupSocket } = require('./socket');
+const { verifyConfig: verifyCloudinary } = require('./services/CloudinaryService');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -44,6 +45,9 @@ const validateRuntimeEnv = () => {
     if (isPlaceholderSecret(process.env.JWT_SECRET)) missing.push('JWT_SECRET');
     if (isPlaceholderSecret(process.env.JWT_REFRESH_SECRET)) missing.push('JWT_REFRESH_SECRET');
     if (!process.env.FRONTEND_ORIGIN) missing.push('FRONTEND_ORIGIN');
+
+    // Verify Cloudinary is configured (required for all media uploads)
+    try { verifyCloudinary(); } catch (e) { missing.push('CLOUDINARY (CLOUD_NAME/API_KEY/API_SECRET)'); }
 
     if (missing.length) {
         throw new Error(`Missing required production environment variables: ${missing.join(', ')}`);
@@ -89,11 +93,8 @@ app.use('/uploads', express.static(UPLOAD_DIR, {
     etag: true,
 }));
 
-// Auto-create upload directories on startup so Multer never crashes on a missing folder
-const fs = require('fs');
-['', 'posts', 'avatars', 'stories', 'messages', 'reels'].forEach(sub => {
-    fs.mkdirSync(path.join(UPLOAD_DIR, sub), { recursive: true });
-});
+// Note: uploads directory no longer needed — all media goes to Cloudinary via memoryStorage
+
 
 
 // ─── API Routes ────────────────────────────────────────────────────────────────

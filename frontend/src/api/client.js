@@ -118,6 +118,7 @@ export const storyAPI = {
     delete: (id) => api.delete(`/stories/${id}`),
     view: (id) => api.post(`/stories/${id}/view`),
     react: (id, emoji) => api.post(`/stories/${id}/react`, { emoji }),
+    getViewers: (id) => api.get(`/stories/${id}/viewers`),
     getHighlights: (userId) => api.get(`/highlights/${userId}`),
     createHighlight: (data) => api.post('/highlights', data),
 };

@@ -1,13 +1,13 @@
 const express = require('express');
-const { query } = require('express-validator');
 const router = express.Router();
 const UserService = require('../services/UserService');
 const FeedService = require('../services/FeedService');
 const FollowService = require('../services/FollowService');
+const Follow = require('../models/Follow');
+const User = require('../models/User');
 const { authenticate } = require('../middleware/auth');
 const { uploadAvatar } = require('../middleware/upload');
-const { uploadFile, isConfigured } = require('../services/CloudinaryService');
-const path = require('path');
+const { uploadBuffer } = require('../services/CloudinaryService');
 
 // GET /users/search
 router.get('/search', authenticate, async (req, res, next) => {
@@ -40,24 +40,14 @@ router.patch('/me', authenticate, async (req, res, next) => {
     } catch (e) { next(e); }
 });
 
-// POST /users/me/avatar
+// POST /users/me/avatar — always upload to Cloudinary (BUG 1 fix)
 router.post('/me/avatar', authenticate, (req, res, next) => {
     uploadAvatar(req, res, async (err) => {
         if (err) return next(err);
         if (!req.file) return res.status(400).json({ success: false, message: 'No file uploaded' });
         try {
-            let avatarUrl = `/uploads/avatars/${req.file.filename}`;
-            let avatarPublicId;
-            if (isConfigured()) {
-                try {
-                    const result = await uploadFile(req.file.path, { folder: `instaclone/avatars` });
-                    avatarUrl = result.secure_url;
-                    avatarPublicId = result.public_id;
-                } catch (e) {
-                    // fallback to local path if Cloudinary fails
-                }
-            }
-            const user = await UserService.updateAvatar(req.user._id, avatarUrl, avatarPublicId);
+            const result = await uploadBuffer(req.file.buffer, { folder: 'instaclone/avatars', resource_type: 'image' });
+            const user = await UserService.updateAvatar(req.user._id, result.secure_url, result.public_id);
             res.json({ success: true, data: user });
         } catch (e) { next(e); }
     });
@@ -101,7 +91,6 @@ router.post('/:username/follow', authenticate, async (req, res, next) => {
         const result = await FollowService.follow(req.user._id, req.params.username);
         res.status(201).json({ success: true, data: result });
 
-        // Push notification via Socket.IO (FollowService already creates+returns the notif)
         const io = req.app.get('io');
         if (io && result.notification) {
             const { pushNotification } = require('../socket');
@@ -128,36 +117,93 @@ router.delete('/:username/follow-request', authenticate, async (req, res, next) 
     } catch (e) { next(e); }
 });
 
+// ── Privacy gate helper ─────────────────────────────────────────────────────
+/**
+ * Returns true if the requesting user can view private content for `targetUser`.
+ * Passes if: requester IS the owner, OR the account is public, OR they follow & were accepted.
+ */
+async function canViewPrivateContent(targetUser, requestingUserId) {
+    if (!targetUser.is_private) return true;
+    if (targetUser._id.toString() === requestingUserId.toString()) return true;
+    const follow = await Follow.findOne({
+        follower_id: requestingUserId,
+        following_id: targetUser._id,
+        status: 'accepted',
+    });
+    return !!follow;
+}
 
-
-// GET /users/:username/followers
+// GET /users/:username/followers — BUG 3: privacy gate
 router.get('/:username/followers', authenticate, async (req, res, next) => {
     try {
+        const targetUser = await User.findOne({ username: req.params.username.toLowerCase() }).select('_id is_private');
+        if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+        if (!(await canViewPrivateContent(targetUser, req.user._id))) {
+            return res.status(403).json({ success: false, error: 'PRIVATE_ACCOUNT', message: 'This account is private' });
+        }
+
         const result = await UserService.getFollowers(req.params.username, req.query.cursor);
         res.json({ success: true, data: result });
     } catch (e) { next(e); }
 });
 
-// GET /users/:username/following
+// GET /users/:username/following — BUG 3: privacy gate
 router.get('/:username/following', authenticate, async (req, res, next) => {
     try {
+        const targetUser = await User.findOne({ username: req.params.username.toLowerCase() }).select('_id is_private');
+        if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+        if (!(await canViewPrivateContent(targetUser, req.user._id))) {
+            return res.status(403).json({ success: false, error: 'PRIVATE_ACCOUNT', message: 'This account is private' });
+        }
+
         const result = await UserService.getFollowing(req.params.username, req.query.cursor);
         res.json({ success: true, data: result });
     } catch (e) { next(e); }
 });
 
-// GET /users/:username/posts
+// GET /users/:username/posts — BUG 3: privacy gate
 router.get('/:username/posts', authenticate, async (req, res, next) => {
     try {
+        const targetUser = await User.findOne({ username: req.params.username.toLowerCase() }).select('_id is_private');
+        if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+        if (!(await canViewPrivateContent(targetUser, req.user._id))) {
+            return res.json({ success: true, data: { posts: [], next_cursor: null } });
+        }
+
         const result = await UserService.getUserPosts(req.params.username, req.query.cursor, parseInt(req.query.limit) || 15);
         res.json({ success: true, data: result });
     } catch (e) { next(e); }
 });
 
-// GET /users/:username/reels
+// GET /users/:username/reels — BUG 3: privacy gate
 router.get('/:username/reels', authenticate, async (req, res, next) => {
     try {
+        const targetUser = await User.findOne({ username: req.params.username.toLowerCase() }).select('_id is_private');
+        if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+        if (!(await canViewPrivateContent(targetUser, req.user._id))) {
+            return res.json({ success: true, data: { posts: [], next_cursor: null } });
+        }
+
         const result = await UserService.getUserPosts(req.params.username, req.query.cursor, parseInt(req.query.limit) || 15, 'reel');
+        res.json({ success: true, data: result });
+    } catch (e) { next(e); }
+});
+
+// GET /users/:username/tagged — BUG 3: privacy gate
+router.get('/:username/tagged', authenticate, async (req, res, next) => {
+    try {
+        const targetUser = await User.findOne({ username: req.params.username.toLowerCase() }).select('_id is_private');
+        if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+        if (!(await canViewPrivateContent(targetUser, req.user._id))) {
+            return res.json({ success: true, data: { posts: [], next_cursor: null } });
+        }
+
+        const result = await UserService.getUserPosts(req.params.username, req.query.cursor, parseInt(req.query.limit) || 15, 'tagged');
         res.json({ success: true, data: result });
     } catch (e) { next(e); }
 });
