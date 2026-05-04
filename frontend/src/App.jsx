@@ -4,7 +4,8 @@ import { useAuthStore } from './store/authStore';
 import { connectSocket } from './api/socket';
 import { useNotifStore } from './store/uiStore';
 import { getSocket } from './api/socket';
-import { notifAPI } from './api/client';
+import { notifAPI, userAPI } from './api/client';
+import { BACKEND_BASE_URL } from './api/config';
 
 // Lazy-load pages for performance
 import AppLayout from './components/layout/AppLayout';
@@ -26,19 +27,32 @@ const HashtagPage = React.lazy(() => import('./pages/HashtagPage'));
 const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
 
 function App() {
-    const { isAuthenticated, accessToken } = useAuthStore();
+    const { isAuthenticated, accessToken, initializeAuth } = useAuthStore();
     const { incrementUnread, setUnreadCount } = useNotifStore();
 
-    // Connect socket and bind real-time events on login
+    // Validate session once on first mount
+    useEffect(() => { initializeAuth(); }, []);
+
+    // On page load: validate persisted token & reconnect socket
     useEffect(() => {
         if (isAuthenticated && accessToken) {
             const socket = connectSocket(accessToken);
             socket.on('notification', () => incrementUnread());
 
+            // Validate token is still live (triggers auto-refresh via interceptor if expired)
+            userAPI.getMe().catch(() => {});
+
             // Populate badge from server on every page load/refresh
             notifAPI.getUnreadCount()
                 .then(r => setUnreadCount(r.data.data.count))
                 .catch(() => {});
+
+            // Keep Render backend alive: ping every 14 minutes (free tier sleeps after 15min)
+            const keepAlive = setInterval(() => {
+                fetch(`${BACKEND_BASE_URL}/health`).catch(() => {});
+            }, 14 * 60 * 1000);
+
+            return () => clearInterval(keepAlive);
         }
     }, [isAuthenticated, accessToken]);
 

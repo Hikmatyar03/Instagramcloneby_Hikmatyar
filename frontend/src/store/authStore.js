@@ -27,6 +27,19 @@ export const useAuthStore = create(
                 } catch { }
             },
 
+            // Called on app startup to validate persisted session
+            initializeAuth: async () => {
+                const { accessToken, logout } = get();
+                if (!accessToken) return;
+                try {
+                    const { data } = await userAPI.getMe();
+                    set({ user: data.data, isAuthenticated: true });
+                } catch {
+                    // If even refresh fails, clear everything
+                    logout();
+                }
+            },
+
             logout: () => {
                 localStorage.removeItem('accessToken');
                 disconnectSocket();

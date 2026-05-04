@@ -27,7 +27,9 @@ api.interceptors.response.use(
     (res) => res,
     async (error) => {
         const original = error.config;
-        if (error.response?.status === 401 && !original._retry && error.response?.data?.error !== 'UNAUTHORIZED') {
+        // Skip refresh for auth endpoints themselves (avoids infinite loop)
+        const isAuthRoute = original?.url?.includes('/auth/');
+        if (error.response?.status === 401 && !original._retry && !isAuthRoute) {
             if (isRefreshing) {
                 return new Promise((resolve, reject) => {
                     failedQueue.push({ resolve, reject });
