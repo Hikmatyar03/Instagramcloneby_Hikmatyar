@@ -4,6 +4,8 @@ const request = require('supertest');
 const path = require('path');
 const fs = require('fs');
 const { app } = require('../server');
+const Like = require('../models/Like');
+const Post = require('../models/Post');
 
 
 // Helper: register + login to get an access token
@@ -132,6 +134,65 @@ describe('Posts API', () => {
 
             expect(res.statusCode).toBe(200); // Should not throw
             expect(res.body.data.liked).toBe(true);
+            expect(res.body.data.likes_count).toBe(1);
+        });
+
+        it('should unlike a post and decrement like count to zero', async () => {
+            const { token } = await loginUser();
+            const pngBuffer = Buffer.from(
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==',
+                'base64'
+            );
+            const createRes = await request(app)
+                .post('/api/v1/posts')
+                .set('Authorization', `Bearer ${token}`)
+                .field('caption', 'Unlike counter test')
+                .attach('files', pngBuffer, { filename: 'img.png', contentType: 'image/png' });
+
+            const postId = createRes.body.data._id;
+            await request(app).post(`/api/v1/posts/${postId}/like`).set('Authorization', `Bearer ${token}`);
+
+            const unlikeRes = await request(app)
+                .delete(`/api/v1/posts/${postId}/like`)
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(unlikeRes.statusCode).toBe(200);
+            expect(unlikeRes.body.data.liked).toBe(false);
+            expect(unlikeRes.body.data.likes_count).toBe(0);
+
+            const fetchRes = await request(app)
+                .get(`/api/v1/posts/${postId}`)
+                .set('Authorization', `Bearer ${token}`);
+            expect(fetchRes.body.data.likes_count).toBe(0);
+            expect(fetchRes.body.data.is_liked).toBe(false);
+        });
+
+        it('should repair stale like counts from the likes collection', async () => {
+            const { token, user } = await loginUser();
+            const pngBuffer = Buffer.from(
+                'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg==',
+                'base64'
+            );
+            const createRes = await request(app)
+                .post('/api/v1/posts')
+                .set('Authorization', `Bearer ${token}`)
+                .field('caption', 'Stale counter repair test')
+                .attach('files', pngBuffer, { filename: 'img.png', contentType: 'image/png' });
+
+            const postId = createRes.body.data._id;
+            await Like.create({ user_id: user._id, target_id: postId, target_type: 'post' });
+            await Post.findByIdAndUpdate(postId, { $set: { likes_count: 0 } });
+
+            const likeRes = await request(app)
+                .post(`/api/v1/posts/${postId}/like`)
+                .set('Authorization', `Bearer ${token}`);
+
+            expect(likeRes.statusCode).toBe(200);
+            expect(likeRes.body.data.liked).toBe(true);
+            expect(likeRes.body.data.likes_count).toBe(1);
+
+            const post = await Post.findById(postId);
+            expect(post.likes_count).toBe(1);
         });
     });
 

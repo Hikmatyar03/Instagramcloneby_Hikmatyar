@@ -32,6 +32,12 @@ const makeVideoThumbnail = (videoUrl) => {
 };
 
 class PostService {
+    async syncPostLikesCount(postId) {
+        const likesCount = await Like.countDocuments({ target_id: postId, target_type: 'post' });
+        await Post.findByIdAndUpdate(postId, { $set: { likes_count: likesCount } });
+        return likesCount;
+    }
+
     async createPost(userId, { caption, location, type }, files) {
         // Parse hashtags and mentions
         const hashtags = extractHashtags(caption);
@@ -202,24 +208,18 @@ class PostService {
 
         try {
             await Like.create({ user_id: userId, target_id: postId, target_type: 'post' });
-            // BUG 4 FIX: use { new: true } to get the updated count from DB, not a stale pre-update value
-            const updated = await Post.findByIdAndUpdate(
-                postId,
-                { $inc: { likes_count: 1 } },
-                { new: true },
-            );
-            return { liked: true, likes_count: updated.likes_count };
+            return { liked: true, likes_count: await this.syncPostLikesCount(postId) };
         } catch (e) {
             if (e.code === 11000) {
                 // Already liked — still return the actual DB count
-                return { liked: true, likes_count: post.likes_count };
+                return { liked: true, likes_count: await this.syncPostLikesCount(postId) };
             }
             throw e;
         }
     }
 
     async unlikePost(postId, userId) {
-        const post = await Post.findById(postId);
+        const post = await Post.findOne({ _id: postId, is_deleted: false });
         if (!post) {
             const err = new Error('Post not found');
             err.status = 404;
@@ -228,15 +228,9 @@ class PostService {
 
         const deleted = await Like.findOneAndDelete({ user_id: userId, target_id: postId, target_type: 'post' });
         if (deleted) {
-            // BUG 4 FIX: return updated count from DB
-            const updated = await Post.findByIdAndUpdate(
-                postId,
-                { $inc: { likes_count: -1 } },
-                { new: true },
-            );
-            return { liked: false, likes_count: Math.max(0, updated.likes_count) };
+            return { liked: false, likes_count: await this.syncPostLikesCount(postId) };
         }
-        return { liked: false, likes_count: post.likes_count };
+        return { liked: false, likes_count: await this.syncPostLikesCount(postId) };
     }
 
     async getPostLikes(postId, cursor, limit = 20) {

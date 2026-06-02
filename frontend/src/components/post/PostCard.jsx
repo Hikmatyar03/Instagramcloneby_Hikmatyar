@@ -13,6 +13,37 @@ import {
 import toast from 'react-hot-toast';
 import { getMediaUrl } from '../../utils/media';
 
+const normalizeLikesCount = (value) => Math.max(0, Number(value) || 0);
+
+const patchPostLikeState = (data, postId, nextLiked, nextLikesCount) => {
+    if (!data) return data;
+    if (Array.isArray(data)) {
+        return data.map(item => patchPostLikeState(item, postId, nextLiked, nextLikesCount));
+    }
+    if (data._id === postId) {
+        return { ...data, is_liked: nextLiked, likes_count: nextLikesCount };
+    }
+    if (data.pages) {
+        return {
+            ...data,
+            pages: data.pages.map(page => patchPostLikeState(page, postId, nextLiked, nextLikesCount)),
+        };
+    }
+    if (data.posts) {
+        return {
+            ...data,
+            posts: data.posts.map(item => patchPostLikeState(item, postId, nextLiked, nextLikesCount)),
+        };
+    }
+    if (data.reels) {
+        return {
+            ...data,
+            reels: data.reels.map(item => patchPostLikeState(item, postId, nextLiked, nextLikesCount)),
+        };
+    }
+    return data;
+};
+
 /* ─── Share Modal ─────────────────────────────────────────────────────────── */
 
 function ShareModal({ postId, onClose }) {
@@ -208,9 +239,9 @@ export default function PostCard({ post, onDeleted }) {
     const { user } = useAuthStore();
     const qc = useQueryClient();
     const navigate = useNavigate();
-    const [liked, setLiked] = useState(post.is_liked || false);
-    const [likesCount, setLikesCount] = useState(post.likes_count || 0);
-    const [saved, setSaved] = useState(post.is_saved || false);
+    const [liked, setLiked] = useState(post.is_liked ?? false);
+    const [likesCount, setLikesCount] = useState(normalizeLikesCount(post.likes_count));
+    const [saved, setSaved] = useState(post.is_saved ?? false);
     const [showHeart, setShowHeart] = useState(false);
     const [currentMedia, setCurrentMedia] = useState(0);
     const [showShare, setShowShare] = useState(false);
@@ -218,26 +249,47 @@ export default function PostCard({ post, onDeleted }) {
 
     const isOwner = user?._id === (post.user_id?._id || post.user_id);
 
-    // BUG 4 FIX: onSuccess reads likes_count from server response and syncs local state
+    useEffect(() => {
+        if (post.is_liked !== undefined) setLiked(!!post.is_liked);
+        setLikesCount(normalizeLikesCount(post.likes_count));
+        if (post.is_saved !== undefined) setSaved(!!post.is_saved);
+    }, [post._id, post.is_liked, post.likes_count, post.is_saved]);
+
+    const syncCachedLikeState = (nextLiked, nextLikesCount) => {
+        const patch = data => patchPostLikeState(data, post._id, nextLiked, nextLikesCount);
+        qc.setQueriesData({ queryKey: ['feed'] }, patch);
+        qc.setQueriesData({ queryKey: ['post', post._id] }, patch);
+        qc.setQueriesData({ queryKey: ['user-posts'] }, patch);
+        qc.setQueriesData({ queryKey: ['hashtag-posts'] }, patch);
+        qc.setQueriesData({ queryKey: ['explore'] }, patch);
+        qc.setQueriesData({ queryKey: ['reels-feed'] }, patch);
+    };
+
     const likeMutation = useMutation({
-        mutationFn: () => liked ? postAPI.unlike(post._id) : postAPI.like(post._id),
-        onMutate: () => {
-            // Optimistic update
-            setLiked(prev => !prev);
-            setLikesCount(c => c + (liked ? -1 : 1));
+        mutationFn: ({ wasLiked }) => wasLiked ? postAPI.unlike(post._id) : postAPI.like(post._id),
+        onMutate: ({ wasLiked, previousLikesCount }) => {
+            const nextLiked = !wasLiked;
+            const nextLikesCount = normalizeLikesCount(previousLikesCount + (wasLiked ? -1 : 1));
+            setLiked(nextLiked);
+            setLikesCount(nextLikesCount);
+            syncCachedLikeState(nextLiked, nextLikesCount);
+            return { wasLiked, previousLikesCount };
         },
-        onSuccess: (res) => {
-            // Sync with authoritative server value
+        onSuccess: (res, variables) => {
             const serverData = res?.data?.data;
             if (serverData?.likes_count !== undefined) {
-                setLikesCount(serverData.likes_count);
-                setLiked(serverData.liked ?? !liked);
+                const nextLiked = serverData.liked ?? !variables.wasLiked;
+                const nextLikesCount = normalizeLikesCount(serverData.likes_count);
+                setLiked(nextLiked);
+                setLikesCount(nextLikesCount);
+                syncCachedLikeState(nextLiked, nextLikesCount);
             }
         },
-        onError: () => {
-            // Rollback optimistic update
-            setLiked(prev => !prev);
-            setLikesCount(c => c + (liked ? 1 : -1));
+        onError: (_error, _variables, context) => {
+            if (!context) return;
+            setLiked(context.wasLiked);
+            setLikesCount(context.previousLikesCount);
+            syncCachedLikeState(context.wasLiked, context.previousLikesCount);
         },
     });
 
@@ -249,13 +301,7 @@ export default function PostCard({ post, onDeleted }) {
 
     const handleDoubleTap = () => {
         if (!liked) {
-            setLiked(true); setLikesCount(c => c + 1);
-            postAPI.like(post._id)
-                .then(res => {
-                    const d = res?.data?.data;
-                    if (d?.likes_count !== undefined) setLikesCount(d.likes_count);
-                })
-                .catch(() => { setLiked(false); setLikesCount(c => c - 1); });
+            likeMutation.mutate({ wasLiked: false, previousLikesCount: likesCount });
         }
         setShowHeart(true);
         setTimeout(() => setShowHeart(false), 800);
@@ -347,7 +393,11 @@ export default function PostCard({ post, onDeleted }) {
                 <div className="px-4 pt-3 pb-1">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">
-                            <button onClick={() => likeMutation.mutate()} className="text-text-primary hover:opacity-70 transition-opacity">
+                            <button
+                                onClick={() => likeMutation.mutate({ wasLiked: liked, previousLikesCount: likesCount })}
+                                disabled={likeMutation.isPending}
+                                className="text-text-primary hover:opacity-70 transition-opacity disabled:opacity-60"
+                            >
                                 {liked ? <HiHeart className="w-6 h-6 text-red-500" /> : <HiOutlineHeart className="w-6 h-6" />}
                             </button>
                             <button onClick={() => navigate(`/p/${post._id}`)} className="text-text-primary hover:opacity-70">
